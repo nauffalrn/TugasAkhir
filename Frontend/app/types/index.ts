@@ -21,6 +21,9 @@ export interface QuizQuestion {
 
 export interface QuizAttempt {
   attempt_id: string;
+  topic_id: string;
+  topic_slug: string;
+  level: number;
   time_limit_seconds: number | null;
   questions: QuizQuestion[];
 }
@@ -31,6 +34,8 @@ export interface QuizResult {
   total_questions: number;
   review: Array<{
     question_id: string;
+    prompt: string;
+    options: string[];
     selected_index: number;
     correct_index: number;
     is_correct: boolean;

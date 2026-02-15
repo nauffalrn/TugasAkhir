@@ -11,13 +11,37 @@ export async function findProgress(userId: string, topicId: string) {
 }
 
 export async function upsertProgress(progress: any) {
-  return supabase.from("user_topic_progress").upsert(progress, { onConflict: "user_id,topic_id" });
+  return supabase
+    .from("user_topic_progress")
+    .upsert(progress, { onConflict: "user_id,topic_id" });
 }
 
 export async function findAllProgressByUser(userId: string) {
   const { data, error } = await supabase
     .from("user_topic_progress")
-    .select("highest_level_unlocked,best_score_l1,best_score_l2,best_score_l3,best_score_l4,topic_id")
+    .select(
+      `
+      highest_level_unlocked,
+      best_score_l1,
+      best_score_l2,
+      best_score_l3,
+      best_score_l4,
+      topic_id,
+      topics!inner(slug)
+    `,
+    )
     .eq("user_id", userId);
-  return { data, error };
+
+  // Flatten the response to include slug directly
+  const flatData = data?.map((p: any) => ({
+    highest_level_unlocked: p.highest_level_unlocked,
+    best_score_l1: p.best_score_l1,
+    best_score_l2: p.best_score_l2,
+    best_score_l3: p.best_score_l3,
+    best_score_l4: p.best_score_l4,
+    topic_id: p.topic_id,
+    topic_slug: p.topics.slug,
+  }));
+
+  return { data: flatData, error };
 }

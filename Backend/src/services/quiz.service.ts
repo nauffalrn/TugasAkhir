@@ -1,10 +1,15 @@
-import * as topicRepo from "../repositories/topic.repository";
+import { randomUUID } from "crypto";
+import * as badgeRepo from "../repositories/badge.repository";
+import * as progressRepo from "../repositories/progress.repository";
 import * as questionRepo from "../repositories/question.repository";
 import * as quizRepo from "../repositories/quiz.repository";
-import * as progressRepo from "../repositories/progress.repository";
-import * as badgeRepo from "../repositories/badge.repository";
+import * as topicRepo from "../repositories/topic.repository";
 
-export async function startQuiz(userId: string, topicSlug: string, level: number) {
+export async function startQuiz(
+  userId: string,
+  topicSlug: string,
+  level: number,
+) {
   // 1) Get topic
   const { data: topic } = await topicRepo.findTopicBySlug(topicSlug);
   if (!topic) {
@@ -26,31 +31,29 @@ export async function startQuiz(userId: string, topicSlug: string, level: number
   }
 
   // 3) Ambil 10 soal acak
-  const { data: questions, error: qError } = await questionRepo.getRandomQuestions(topic.id, level, 10);
+  const { data: questions, error: qError } =
+    await questionRepo.getRandomQuestions(topic.id, level, 10);
   if (qError || !questions || questions.length < 10) {
-    throw { code: "INSUFFICIENT_QUESTIONS", message: "Soal tidak cukup (butuh minimal 10)" };
+    throw {
+      code: "INSUFFICIENT_QUESTIONS",
+      message: "Soal tidak cukup (butuh minimal 10)",
+    };
   }
 
   // 4) Tentukan timer
   let timeLimitSeconds: number | null = null;
   if (level === 3) timeLimitSeconds = 1800; // 30 menit
-  if (level === 4) timeLimitSeconds = 900;  // 15 menit
+  if (level === 4) timeLimitSeconds = 900; // 15 menit
 
-  // 5) Buat attempt
-  const { data: attempt, error: aError } = await quizRepo.createAttempt(userId, topic.id, level, timeLimitSeconds);
-  if (aError || !attempt) {
-    throw { code: "DB_ERROR", message: aError?.message || "Failed to create attempt" };
-  }
+  // 5) Generate temporary attempt ID (tidak disimpan ke DB dulu)
+  const tempAttemptId = randomUUID();
 
-  // 6) Simpan attempt_questions
-  await quizRepo.saveAttemptQuestions(
-    attempt.id,
-    questions.map((q: any) => q.id)
-  );
-
-  // 7) Return soal (tanpa correct_index, hint hanya L1/L2)
+  // 6) Return soal dengan metadata (tanpa correct_index, hint hanya L1/L2)
   return {
-    attempt_id: attempt.id,
+    attempt_id: tempAttemptId,
+    topic_id: topic.id,
+    topic_slug: topicSlug,
+    level: level,
     time_limit_seconds: timeLimitSeconds,
     questions: questions.map((q: any) => ({
       id: q.id,
@@ -61,54 +64,89 @@ export async function startQuiz(userId: string, topicSlug: string, level: number
   };
 }
 
-export async function submitQuiz(userId: string, attemptId: string, answers: Array<{ question_id: string; selected_index: number }>) {
-  // 1) Verify attempt
-  const attempt = await quizRepo.findAttemptById(attemptId);
-  if (!attempt) {
-    throw { code: "ATTEMPT_NOT_FOUND", message: "Attempt tidak ditemukan" };
-  }
-  if (attempt.user_id !== userId) {
-    throw { code: "FORBIDDEN", message: "Bukan attempt kamu" };
-  }
-  if (attempt.submitted_at) {
-    throw { code: "ALREADY_SUBMITTED", message: "Sudah submit sebelumnya" };
+export async function submitQuiz(
+  userId: string,
+  attemptId: string,
+  topicId: string,
+  level: number,
+  answers: Array<{ question_id: string; selected_index: number }>,
+) {
+  // 1) Buat attempt baru saat submit
+  const { data: attempt, error: aError } = await quizRepo.createAttempt(
+    userId,
+    topicId,
+    level,
+    level === 3 ? 1800 : level === 4 ? 900 : null,
+  );
+  if (aError || !attempt) {
+    throw {
+      code: "DB_ERROR",
+      message: aError?.message || "Failed to create attempt",
+    };
   }
 
-  const topicId = attempt.topic_id;
-  const level = attempt.level;
+  const actualAttemptId = attempt.id;
 
-  // 2) Get correct answers
+  // 2) Simpan attempt_questions
+  await quizRepo.saveAttemptQuestions(
+    actualAttemptId,
+    answers.map((a) => a.question_id),
+  );
+
+  // 3) Get correct answers - UPDATE: simpan semua data yang dibutuhkan
   const questionIds = answers.map((a) => a.question_id);
-  const { data: correctData, error: cError } = await questionRepo.findQuestionsByIds(questionIds);
+  const { data: correctData, error: cError } =
+    await questionRepo.findQuestionsByIds(questionIds);
   if (cError || !correctData) {
-    throw { code: "DB_ERROR", message: cError?.message || "Failed to get correct answers" };
+    throw {
+      code: "DB_ERROR",
+      message: cError?.message || "Failed to get correct answers",
+    };
   }
 
-  const correctMap = new Map(correctData.map((q: any) => [q.id, { correct_index: q.correct_index, explanation: q.explanation }]));
+  const correctMap = new Map(
+    correctData.map((q: any) => [
+      q.id,
+      {
+        prompt: q.prompt,
+        options: q.options,
+        correct_index: q.correct_index,
+        explanation: q.explanation,
+      },
+    ]),
+  );
 
-  // 3) Hitung skor
+  // 4) Hitung skor
   let correctCount = 0;
   const answerRecords = answers.map((ans) => {
     const correct = correctMap.get(ans.question_id);
     const isCorrect = correct?.correct_index === ans.selected_index;
     if (isCorrect) correctCount++;
-    return { question_id: ans.question_id, selected_index: ans.selected_index, is_correct: isCorrect };
+    return {
+      question_id: ans.question_id,
+      selected_index: ans.selected_index,
+      is_correct: isCorrect,
+    };
   });
 
   const score = (correctCount / 10) * 100;
 
-  // 4) Simpan answers + update attempt
-  await quizRepo.saveAnswers(attemptId, answerRecords);
-  await quizRepo.updateAttemptSubmit(attemptId, correctCount, score);
+  // 5) Simpan answers + update attempt
+  await quizRepo.saveAnswers(actualAttemptId, answerRecords);
+  await quizRepo.updateAttemptSubmit(actualAttemptId, correctCount, score);
 
-  // 5) Update progress
+  // 6) Update progress
   const currentProgress = await progressRepo.findProgress(userId, topicId);
   const bestKey = `best_score_l${level}`;
-  const currentBest = currentProgress?.[bestKey as keyof typeof currentProgress] as number | null;
+  const currentBest = currentProgress?.[
+    bestKey as keyof typeof currentProgress
+  ] as number | null;
   const newBest = !currentBest || score > currentBest ? score : currentBest;
 
   const newHighest =
-    score >= 80 && level >= (currentProgress?.highest_level_unlocked || 1) && level < 4
+    score >= 80 &&
+    level >= (currentProgress?.highest_level_unlocked || 1) &&
+    level < 4
       ? level + 1
       : currentProgress?.highest_level_unlocked || 1;
 
@@ -122,7 +160,7 @@ export async function submitQuiz(userId: string, attemptId: string, answers: Arr
 
   await progressRepo.upsertProgress(upsertData);
 
-  // 6) Award badge (sekali saja)
+  // 7) Award badge (sekali saja)
   let badgeEarned = false;
   if (score >= 80) {
     const hasBadgeAlready = await badgeRepo.hasBadge(userId, topicId, level);
@@ -132,15 +170,17 @@ export async function submitQuiz(userId: string, attemptId: string, answers: Arr
     }
   }
 
-  // 7) Return review
+  // 8) Return review
   const review = answers.map((ans) => {
-    const correct = correctMap.get(ans.question_id);
+    const questionData = correctMap.get(ans.question_id);
     return {
       question_id: ans.question_id,
+      prompt: questionData?.prompt,
+      options: questionData?.options,
       selected_index: ans.selected_index,
-      correct_index: correct?.correct_index,
-      is_correct: correct?.correct_index === ans.selected_index,
-      explanation: correct?.explanation,
+      correct_index: questionData?.correct_index,
+      is_correct: questionData?.correct_index === ans.selected_index,
+      explanation: questionData?.explanation,
     };
   });
 
