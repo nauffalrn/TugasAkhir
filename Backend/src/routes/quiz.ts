@@ -9,7 +9,7 @@ quizRouter.post("/start", requireAuth, async (req, res) => {
   try {
     const { topic_slug, level } = req.body;
     if (!topic_slug || !level) {
-      return error(res, "INVALID_INPUT", "topic_slug dan level wajib", 400);
+      return error(res, "VALIDATION_ERROR", "topic_slug and level required");
     }
     const userId = (req as AuthedRequest).userId;
     const data = await quizService.startQuiz(userId, topic_slug, level);

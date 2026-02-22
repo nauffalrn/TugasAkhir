@@ -61,11 +61,8 @@ export default function SelectLevel() {
     try {
       const res = await api.get("/profile/progress");
       const allProgress: Progress[] = res.data.data.progress;
-
-      // Find progress for this specific topic by slug
       const topicProgress = allProgress.find((p) => p.topic_slug === slug);
 
-      // Default to level 1 only if no progress found
       setProgress(
         topicProgress || {
           highest_level_unlocked: 1,
@@ -79,7 +76,6 @@ export default function SelectLevel() {
       );
     } catch (err: any) {
       console.error("Failed to load progress:", err);
-      // Default to level 1 only on error
       setProgress({
         highest_level_unlocked: 1,
         best_score_l1: null,

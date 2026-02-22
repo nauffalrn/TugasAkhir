@@ -5,11 +5,12 @@ export interface User {
 }
 
 export interface Topic {
+  id: string;
   slug: string;
   title: string;
-  badge_label: string;
   content_images: string[];
   sort_order: number;
+  created_at: string;
 }
 
 export interface QuizQuestion {

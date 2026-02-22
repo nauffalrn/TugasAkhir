@@ -32,8 +32,7 @@ export async function findAllProgressByUser(userId: string) {
     )
     .eq("user_id", userId);
 
-  // Flatten the response to include slug directly
-  const flatData = data?.map((p: any) => ({
+  const mapped = data?.map((p: any) => ({
     highest_level_unlocked: p.highest_level_unlocked,
     best_score_l1: p.best_score_l1,
     best_score_l2: p.best_score_l2,
@@ -43,5 +42,5 @@ export async function findAllProgressByUser(userId: string) {
     topic_slug: p.topics.slug,
   }));
 
-  return { data: flatData, error };
+  return { data: mapped, error };
 }

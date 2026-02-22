@@ -15,17 +15,21 @@ export default function MateriDetail() {
 
   useEffect(() => {
     loadTopic();
-  }, [slug]);
+  }, []);
 
   async function loadTopic() {
     try {
       const res = await api.get(`/topics/${slug}`);
-      setTopic(res.data.data.topic);
+      setTopic(res.data.data);
     } catch (err: any) {
       Alert.alert("Error", err.message);
     } finally {
       setLoading(false);
     }
+  }
+
+  function startQuiz() {
+    router.push(`/kuis/select-level?slug=${slug}`);
   }
 
   if (loading) return <Loading />;
@@ -37,19 +41,41 @@ export default function MateriDetail() {
 
       {topic.content_images.length > 0 ? (
         topic.content_images.map((img, idx) => (
-          <Image key={idx} source={{ uri: img }} style={styles.image} resizeMode="contain" />
+          <Image
+            key={idx}
+            source={{ uri: img }}
+            style={styles.image}
+            resizeMode="contain"
+          />
         ))
       ) : (
-        <Text style={styles.placeholder}>Materi belum tersedia (gambar akan ditambahkan)</Text>
+        <Text style={styles.placeholder}>
+          Materi belum tersedia (gambar akan ditambahkan)
+        </Text>
       )}
 
-      <Button title="Mulai Kuis" onPress={() => router.push(`/kuis/select-level?slug=${slug}`)} />
+      <Button title="Mulai Kuis" onPress={startQuiz} />
     </Container>
   );
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 24, fontWeight: "bold", marginBottom: 16, color: Colors.text },
-  image: { width: "100%", height: 300, marginBottom: 16, backgroundColor: Colors.border },
-  placeholder: { fontSize: 14, color: Colors.textSecondary, fontStyle: "italic", marginBottom: 16 },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 16,
+    color: Colors.text,
+  },
+  image: {
+    width: "100%",
+    height: 300,
+    marginBottom: 16,
+    backgroundColor: Colors.border,
+  },
+  placeholder: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    fontStyle: "italic",
+    marginBottom: 16,
+  },
 });

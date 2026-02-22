@@ -3,15 +3,15 @@ import * as badgeRepo from "../repositories/badge.repository";
 import * as progressRepo from "../repositories/progress.repository";
 import * as questionRepo from "../repositories/question.repository";
 import * as quizRepo from "../repositories/quiz.repository";
-import * as topicRepo from "../repositories/topic.repository";
+import * as topicService from "../services/topic.service";
 
 export async function startQuiz(
   userId: string,
-  topicSlug: string,
+  topic_slug: string,
   level: number,
-) {
-  // 1) Get topic
-  const { data: topic } = await topicRepo.findTopicBySlug(topicSlug);
+): Promise<any> {
+  const topic = await topicService.getTopicBySlug(topic_slug);
+
   if (!topic) {
     throw { code: "TOPIC_NOT_FOUND", message: "Topic tidak ditemukan" };
   }
@@ -52,7 +52,7 @@ export async function startQuiz(
   return {
     attempt_id: tempAttemptId,
     topic_id: topic.id,
-    topic_slug: topicSlug,
+    topic_slug: topic.slug,
     level: level,
     time_limit_seconds: timeLimitSeconds,
     questions: questions.map((q: any) => ({

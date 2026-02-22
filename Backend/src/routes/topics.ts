@@ -1,24 +1,25 @@
-import { Router } from "express";
-import { requireAuth } from "../middleware/auth";
+import express from "express";
 import * as topicService from "../services/topic.service";
-import { success, error } from "../utils/response";
+import { error, success } from "../utils/response";
 
-export const topicsRouter = Router();
+const router = express.Router();
 
-topicsRouter.get("/", requireAuth, async (_req, res) => {
+router.get("/", async (req, res) => {
   try {
-    const topics = await topicService.getAllTopics();
-    return success(res, { topics });
+    const data = await topicService.getAllTopics();
+    return success(res, data);
   } catch (err: any) {
-    return error(res, err.code || "INTERNAL_ERROR", err.message, 500);
+    return error(res, err.code || "SERVER_ERROR", err.message);
   }
 });
 
-topicsRouter.get("/:slug", requireAuth, async (req, res) => {
+router.get("/:slug", async (req, res) => {
   try {
     const topic = await topicService.getTopicBySlug(req.params.slug);
-    return success(res, { topic });
+    return success(res, topic);
   } catch (err: any) {
-    return error(res, err.code || "INTERNAL_ERROR", err.message, err.code === "NOT_FOUND" ? 404 : 500);
+    return error(res, err.code || "SERVER_ERROR", err.message);
   }
 });
+
+export default router;

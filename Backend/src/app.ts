@@ -4,8 +4,8 @@ const helmet = require("helmet");
 
 import { env } from "./config/env";
 import { authRouter } from "./routes/auth";
-import { topicsRouter } from "./routes/topics";
 import { quizRouter } from "./routes/quiz";
+import topicsRouter from "./routes/topics";
 import { profileRouter } from "./routes/profiles";
 
 export function createApp() {

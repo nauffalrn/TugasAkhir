@@ -48,22 +48,14 @@ export default function MateriScreen() {
 
         <FlatList
           data={topics}
-          keyExtractor={(item) => item.slug}
-          renderItem={({ item, index }) => (
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
             <TouchableOpacity
               onPress={() => router.push(`/materi/${item.slug}`)}
-              activeOpacity={0.7}
+              style={styles.topicCardWrapper}
             >
               <Card style={styles.topicCard}>
-                <View style={styles.topicHeader}>
-                  <View style={styles.topicNumber}>
-                    <Text style={styles.topicNumberText}>{index + 1}</Text>
-                  </View>
-                  <View style={styles.topicInfo}>
-                    <Text style={styles.topicTitle}>{item.title}</Text>
-                    <Text style={styles.topicSubtitle}>{item.badge_label}</Text>
-                  </View>
-                </View>
+                <Text style={styles.topicTitle}>{item.title}</Text>
               </Card>
             </TouchableOpacity>
           )}
@@ -98,41 +90,18 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingBottom: 20,
   },
-  topicCard: {
+  topicCardWrapper: {
     borderLeftWidth: 4,
     borderLeftColor: Colors.primary,
     backgroundColor: Colors.lightPink + "30",
   },
-  topicHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-  },
-  topicNumber: {
-    width: 44,
-    height: 44,
+  topicCard: {
+    padding: 16,
     borderRadius: 12,
-    backgroundColor: Colors.primary,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  topicNumberText: {
-    fontSize: 20,
-    fontFamily: "Galano-Bold",
-    color: Colors.card,
-  },
-  topicInfo: {
-    flex: 1,
   },
   topicTitle: {
     fontSize: 18,
     fontFamily: "Galano-Bold",
     color: Colors.text,
-    marginBottom: 4,
-  },
-  topicSubtitle: {
-    fontSize: 14,
-    fontFamily: "Galano",
-    color: Colors.textSecondary,
   },
 });

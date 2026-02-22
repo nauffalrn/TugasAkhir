@@ -74,7 +74,6 @@ export default function AttemptScreen() {
     } catch (err: any) {
       const errorMessage = err.message || "Gagal memulai kuis";
 
-      // Check if it's a level locked error
       if (
         errorMessage.includes("terkunci") ||
         errorMessage.includes("Level") ||
@@ -154,12 +153,13 @@ export default function AttemptScreen() {
         answers: payload,
       });
 
-      router.push({
+      const resultData = JSON.stringify(res.data.data);
+      router.replace({
         pathname: "/kuis/result",
         params: {
-          resultData: JSON.stringify(res.data.data),
-          slug: attempt!.topic_slug,
-          level: attempt!.level.toString(),
+          resultData,
+          slug,
+          level,
         },
       });
     } catch (err: any) {
