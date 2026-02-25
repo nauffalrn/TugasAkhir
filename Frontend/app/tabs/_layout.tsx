@@ -1,38 +1,50 @@
 import { Tabs } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import React from "react";
 import { Colors } from "../constants/config";
+import { Ionicons } from "@expo/vector-icons";
+import { Platform } from "react-native";
 
 export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors.danger,
-        tabBarInactiveTintColor: Colors.textLight,
+        headerShown: false,
+        tabBarActiveTintColor: Colors.primary,
+        tabBarInactiveTintColor: Colors.textSecondary,
         tabBarStyle: {
-          backgroundColor: Colors.peach,
+          backgroundColor: Colors.surface,
           borderTopWidth: 0,
           elevation: 8,
-          shadowColor: Colors.primary,
-          shadowOffset: { width: 0, height: -2 },
+          shadowColor: Colors.shadow,
+          shadowOffset: { width: 0, height: -4 },
           shadowOpacity: 0.1,
-          shadowRadius: 4,
-          height: 60,
-          paddingBottom: 8,
+          shadowRadius: 8,
+          height: Platform.OS === "ios" ? 88 : 64,
+          paddingBottom: Platform.OS === "ios" ? 28 : 8,
           paddingTop: 8,
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
         },
         tabBarLabelStyle: {
-          fontFamily: "Galano-SemiBold",
+          fontFamily: "Galano-Bold",
           fontSize: 12,
+          marginTop: 4,
         },
-        headerShown: false,
+        tabBarIconStyle: {
+          marginTop: 4,
+        },
       }}
     >
       <Tabs.Screen
         name="materi"
         options={{
           title: "Materi",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="book-outline" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "book" : "book-outline"}
+              size={24}
+              color={color}
+            />
           ),
         }}
       />
@@ -40,8 +52,12 @@ export default function TabsLayout() {
         name="kuis"
         options={{
           title: "Kuis",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="create-outline" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "game-controller" : "game-controller-outline"}
+              size={24}
+              color={color}
+            />
           ),
         }}
       />
@@ -49,8 +65,12 @@ export default function TabsLayout() {
         name="profil"
         options={{
           title: "Profil",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "person" : "person-outline"}
+              size={24}
+              color={color}
+            />
           ),
         }}
       />

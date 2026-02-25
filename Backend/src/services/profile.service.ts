@@ -1,8 +1,8 @@
-import * as userRepo from "../repositories/user.repository";
-import * as quizRepo from "../repositories/quiz.repository";
 import * as badgeRepo from "../repositories/badge.repository";
 import * as progressRepo from "../repositories/progress.repository";
+import * as quizRepo from "../repositories/quiz.repository";
 import * as topicRepo from "../repositories/topic.repository";
+import * as userRepo from "../repositories/user.repository";
 
 export async function getUserProfile(userId: string) {
   const user = await userRepo.findUserById(userId);
@@ -10,38 +10,44 @@ export async function getUserProfile(userId: string) {
     throw { code: "USER_NOT_FOUND", message: "User tidak ditemukan" };
   }
 
-  const totalQuestions = await quizRepo.countTotalQuestionsAnswered(userId);
+  // Get total attempts
+  const totalAttempts = await quizRepo.countUserAttempts(userId);
+
+  // Get badges earned
+  const { data: badges } = await badgeRepo.findAllBadgesByUser(userId);
 
   return {
-    user,
-    stats: { total_questions_answered: totalQuestions },
+    id: user.id,
+    email: user.email,
+    username: user.username,
+    created_at: user.created_at,
+    total_attempts: totalAttempts || 0,
+    badges_earned: badges?.length || 0,
   };
 }
 
 export async function getUserBadges(userId: string) {
-  const { data: badges, error } = await badgeRepo.findAllBadgesByUser(userId);
+  const { data: userBadges, error } =
+    await badgeRepo.findAllBadgesByUser(userId);
   if (error) {
     throw { code: "DB_ERROR", message: error.message };
   }
 
-  // Fetch topic + badge_def untuk setiap badge (parallel)
+  // Enrich with badge definitions
   const enriched = await Promise.all(
-    (badges || []).map(async (b: any) => {
-      const [topicRes, badgeDef] = await Promise.all([
-        topicRepo.findTopicBySlug(""), // placeholder, sebenarnya by id
-        badgeRepo.findBadgeDef(b.topic_id, b.level),
-      ]);
+    (userBadges || []).map(async (ub: any) => {
+      const badgeDef = await badgeRepo.findBadgeDef(ub.topic_id, ub.level);
+      const { data: topic } = await topicRepo.findTopicById(ub.topic_id);
 
-      // Workaround: fetch topic by id (add helper jika perlu)
-      const { data: topic } = await topicRepo.findTopicBySlug(""); // FIX: perlu repo.findTopicById
       return {
-        level: b.level,
-        earned_at: b.earned_at,
-        topic_id: b.topic_id,
-        title: badgeDef?.title,
-        icon_key: badgeDef?.icon_key,
+        topic_id: ub.topic_id,
+        topic_title: topic?.title || "Unknown",
+        level: ub.level,
+        earned_at: ub.earned_at,
+        title: badgeDef?.title || `Level ${ub.level}`,
+        icon_key: badgeDef?.icon_key || `default-level-${ub.level}`,
       };
-    })
+    }),
   );
 
   return enriched;
@@ -52,5 +58,8 @@ export async function getUserProgress(userId: string) {
   if (error) {
     throw { code: "DB_ERROR", message: error.message };
   }
-  return data || [];
+
+  return {
+    progress: data || [],
+  };
 }

@@ -93,7 +93,7 @@ export async function submitQuiz(
     answers.map((a) => a.question_id),
   );
 
-  // 3) Get correct answers - UPDATE: simpan semua data yang dibutuhkan
+  // 3) Get correct answers - simpan semua data yang dibutuhkan
   const questionIds = answers.map((a) => a.question_id);
   const { data: correctData, error: cError } =
     await questionRepo.findQuestionsByIds(questionIds);
@@ -160,11 +160,15 @@ export async function submitQuiz(
 
   await progressRepo.upsertProgress(upsertData);
 
-  // 7) Award badge (sekali saja)
+  // 7) Award badge jika score >= 80 (sekali saja)
   let badgeEarned = false;
   if (score >= 80) {
-    const hasBadgeAlready = await badgeRepo.hasBadge(userId, topicId, level);
-    if (!hasBadgeAlready) {
+    const badgeExists = await badgeRepo.checkBadgeExists(
+      userId,
+      topicId,
+      level,
+    );
+    if (!badgeExists) {
       await badgeRepo.awardBadge(userId, topicId, level);
       badgeEarned = true;
     }

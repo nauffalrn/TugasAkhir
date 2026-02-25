@@ -3,199 +3,204 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
-  Alert,
-  TouchableOpacity,
+  ScrollView,
+  Image,
+  ActivityIndicator,
 } from "react-native";
-import { router } from "expo-router";
 import { useAuth } from "../hooks/useAuth";
-import { api } from "../lib/api";
-import { Container } from "../components/layout/container";
+import { Colors } from "../constants/config";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
-import { Loading } from "../components/ui/loading";
-import { Colors } from "../constants/config";
-import type { UserProfile, Badge } from "../types";
+import { Container } from "../components/layout/container";
+import { api } from "../lib/api";
+import { getBadgeImage } from "../utils/badges";
+
+interface Badge {
+  topic_id: string;
+  topic_title: string;
+  level: number;
+  title: string;
+  icon_key: string;
+  earned_at: string;
+}
 
 export default function ProfilScreen() {
   const { user, logout } = useAuth();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profile, setProfile] = useState<any>(null);
   const [badges, setBadges] = useState<Badge[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadProfile();
+    loadBadges();
   }, []);
 
   async function loadProfile() {
     try {
-      const [profileRes, badgesRes] = await Promise.all([
-        api.get("/profile/me"),
-        api.get("/profile/badges"),
-      ]);
-      setProfile(profileRes.data.data);
-      setBadges(badgesRes.data.data.badges);
-    } catch (err: any) {
-      Alert.alert("Error", err.message);
+      const res = await api.get("/profile/me");
+      setProfile(res.data.data);
+    } catch (err) {
+      console.error("Load profile error:", err);
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleLogout() {
-    Alert.alert("Logout", "Yakin ingin keluar?", [
-      { text: "Batal", style: "cancel" },
-      {
-        text: "Logout",
-        style: "destructive",
-        onPress: async () => {
-          await logout();
-          router.replace("/auth/login");
-        },
-      },
-    ]);
+  async function loadBadges() {
+    try {
+      const res = await api.get("/profile/badges");
+      setBadges(res.data.data);
+    } catch (err) {
+      console.error("Load badges error:", err);
+    }
   }
 
-  if (loading) return <Loading />;
+  if (loading) {
+    return (
+      <Container>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      </Container>
+    );
+  }
 
   return (
-    <Container scroll>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Profil</Text>
-        </View>
-
-        {/* User Info Card */}
-        <Card style={styles.userCard}>
-          <View style={styles.userInfo}>
-            <Text style={styles.label}>Email</Text>
-            <Text style={styles.value}>{user?.email}</Text>
-            {user?.username && (
-              <>
-                <Text style={[styles.label, { marginTop: 16 }]}>Username</Text>
-                <Text style={styles.value}>{user.username}</Text>
-              </>
-            )}
-          </View>
-        </Card>
-
-        {/* Stats Card */}
-        <Card style={styles.statsCard}>
-          <Text style={styles.sectionTitle}>📊 Statistik</Text>
-          <View style={styles.statRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>
-                {profile?.stats.total_questions_answered || 0}
+    <Container>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        {/* Profile Card */}
+        <Card style={styles.profileCard}>
+          <View style={styles.avatarContainer}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {profile?.username?.charAt(0).toUpperCase() ||
+                  profile?.email?.charAt(0).toUpperCase()}
               </Text>
-              <Text style={styles.statLabel}>Soal Dikerjakan</Text>
+            </View>
+          </View>
+
+          <Text style={styles.username}>{profile?.username || "User"}</Text>
+          <Text style={styles.email}>{profile?.email}</Text>
+
+          <View style={styles.statsRow}>
+            <View style={styles.statBox}>
+              <Text style={styles.statNumber}>
+                {profile?.total_attempts || 0}
+              </Text>
+              <Text style={styles.statLabel}>Kuis Selesai</Text>
             </View>
             <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{badges.length}</Text>
-              <Text style={styles.statLabel}>Badge Diraih</Text>
+            <View style={styles.statBox}>
+              <Text style={styles.statNumber}>
+                {profile?.badges_earned || 0}
+              </Text>
+              <Text style={styles.statLabel}>Badge</Text>
             </View>
           </View>
         </Card>
 
         {/* Badges Section */}
-        <View style={styles.badgesSection}>
-          <Text style={styles.sectionTitle}>🏆 Koleksi Badge</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>🏆 Badge Saya</Text>
+
           {badges.length === 0 ? (
             <Card style={styles.emptyCard}>
-              <Text style={styles.empty}>
+              <Text style={styles.emptyText}>
                 Belum ada badge. Selesaikan kuis untuk mendapatkan badge!
               </Text>
             </Card>
           ) : (
-            <FlatList
-              data={badges}
-              keyExtractor={(item, idx) =>
-                `${item.topic_id}-${item.level}-${idx}`
-              }
-              renderItem={({ item }) => (
-                <Card style={styles.badgeCard}>
-                  <View style={styles.badgeContent}>
-                    <Text style={styles.badgeEmoji}>🏅</Text>
-                    <View style={styles.badgeInfo}>
-                      <Text style={styles.badgeTitle}>{item.title}</Text>
-                      <Text style={styles.badgeDate}>
-                        {new Date(item.earned_at).toLocaleDateString("id-ID")}
-                      </Text>
-                    </View>
-                  </View>
+            <View style={styles.badgeGrid}>
+              {badges.map((badge, index) => (
+                <Card key={index} style={styles.badgeCard}>
+                  <Image
+                    source={getBadgeImage(badge.icon_key)}
+                    style={styles.badgeImage}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.badgeTitle} numberOfLines={2}>
+                    {badge.title}
+                  </Text>
+                  <Text style={styles.badgeTopic} numberOfLines={1}>
+                    {badge.topic_title}
+                  </Text>
                 </Card>
-              )}
-              contentContainerStyle={styles.badgeList}
-              scrollEnabled={false}
-            />
+              ))}
+            </View>
           )}
         </View>
 
         {/* Logout Button */}
-        <View style={styles.logoutContainer}>
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-            <Text style={styles.logoutText}>🚪 Logout</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+        <Button
+          title="Keluar"
+          onPress={logout}
+          variant="danger"
+          size="large"
+          style={styles.logoutBtn}
+        />
+      </ScrollView>
     </Container>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     padding: 16,
-    paddingTop: 24,
   },
-  header: {
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  profileCard: {
+    padding: 24,
+    alignItems: "center",
     marginBottom: 24,
   },
-  title: {
-    fontSize: 28,
-    fontFamily: "Galano-Bold",
-    color: Colors.text,
-  },
-  userCard: {
-    backgroundColor: Colors.softYellow,
+  avatarContainer: {
     marginBottom: 16,
   },
-  userInfo: {
-    width: "100%",
+  avatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: Colors.primary,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  label: {
-    fontSize: 12,
-    fontFamily: "Galano-SemiBold",
-    color: Colors.textSecondary,
-    textTransform: "uppercase",
+  avatarText: {
+    fontSize: 48,
+    fontFamily: "Galano-Bold",
+    color: Colors.surface,
+  },
+  username: {
+    fontSize: 24,
+    fontFamily: "Galano-Bold",
+    color: Colors.text,
     marginBottom: 4,
   },
-  value: {
+  email: {
     fontSize: 16,
-    fontFamily: "Galano-Bold",
-    color: Colors.text,
+    fontFamily: "Galano",
+    color: Colors.textSecondary,
+    marginBottom: 20,
   },
-  statsCard: {
-    backgroundColor: Colors.softYellow,
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontFamily: "Galano-Bold",
-    color: Colors.text,
-    marginBottom: 16,
-  },
-  statRow: {
+  statsRow: {
     flexDirection: "row",
-    justifyContent: "space-around",
     alignItems: "center",
+    width: "100%",
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
   },
-  statItem: {
-    alignItems: "center",
+  statBox: {
     flex: 1,
+    alignItems: "center",
   },
   statNumber: {
-    fontSize: 32,
-    fontFamily: "Galano-ExtraBold",
+    fontSize: 28,
+    fontFamily: "Galano-Bold",
     color: Colors.primary,
   },
   statLabel: {
@@ -203,75 +208,60 @@ const styles = StyleSheet.create({
     fontFamily: "Galano",
     color: Colors.textSecondary,
     marginTop: 4,
-    textAlign: "center",
   },
   statDivider: {
     width: 1,
     height: 40,
     backgroundColor: Colors.border,
   },
-  badgesSection: {
+  section: {
     marginBottom: 24,
   },
-  emptyCard: {
-    backgroundColor: Colors.softYellow,
-    padding: 24,
+  sectionTitle: {
+    fontSize: 20,
+    fontFamily: "Galano-Bold",
+    color: Colors.text,
+    marginBottom: 16,
   },
-  empty: {
+  emptyCard: {
+    padding: 32,
+    alignItems: "center",
+  },
+  emptyText: {
     fontSize: 14,
     fontFamily: "Galano",
     color: Colors.textSecondary,
-    fontStyle: "italic",
     textAlign: "center",
   },
-  badgeList: {
+  badgeGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 12,
   },
   badgeCard: {
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.warning,
-    backgroundColor: Colors.softYellow,
-  },
-  badgeContent: {
-    flexDirection: "row",
+    width: "48%",
+    padding: 16,
     alignItems: "center",
-    gap: 16,
   },
-  badgeEmoji: {
-    fontSize: 32,
-  },
-  badgeInfo: {
-    flex: 1,
+  badgeImage: {
+    width: 80,
+    height: 80,
+    marginBottom: 12,
   },
   badgeTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: "Galano-Bold",
     color: Colors.text,
+    textAlign: "center",
     marginBottom: 4,
   },
-  badgeDate: {
-    fontSize: 14,
+  badgeTopic: {
+    fontSize: 12,
     fontFamily: "Galano",
     color: Colors.textSecondary,
-  },
-  logoutContainer: {
-    marginTop: 16,
-    marginBottom: 32,
+    textAlign: "center",
   },
   logoutBtn: {
-    backgroundColor: Colors.danger,
-    padding: 16,
-    borderRadius: 16,
-    alignItems: "center",
-    shadowColor: Colors.danger,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  logoutText: {
-    fontSize: 16,
-    fontFamily: "Galano-Bold",
-    color: Colors.card,
+    marginBottom: 40,
   },
 });

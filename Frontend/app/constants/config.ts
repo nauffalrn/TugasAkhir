@@ -1,32 +1,69 @@
 export const API_URL = "http://192.168.100.5:3001";
 
 export const Colors = {
-  // Warna Utama (dari yang kamu berikan)
-  primary: "#EA7B7B", // Merah muda utama
-  secondary: "#D25353", // Merah sedang
-  danger: "#9E3B3B", // Merah gelap
-  warning: "#F59E0B",
-  background: "#FFEAD3", // Cream/krem
+  primary: "#63C7FD",
+  primaryDark: "#4BA3E0",
+  primaryLight: "#BDE7FD",
 
-  // Variasi Pastel untuk UI yang lebih soft dan enak dilihat
-  lightPink: "#FFB5B5", // Pink terang untuk highlight
-  peach: "#FFCFB3", // Peach untuk card alternatif
-  softYellow: "#FFF4E0", // Kuning lembut
-  mintCream: "#F5FFF5", // Mint cream untuk success states
-  lavender: "#F0E6FF", // Lavender untuk variasi
-  skyBlue: "#E3F2FD", // Biru langit lembut
+  secondary: "#FDD444",
+  secondaryDark: "#F5C030",
+  secondaryLight: "#FFF4CD",
 
-  // Neutral & Utility
+  success: "#9DCB37",
+  successDark: "#88B830",
+  successLight: "#F2FFD7",
+
+  danger: "#EF5B54",
+  dangerDark: "#D84942",
+  dangerLight: "#FFE9E5",
+
+  info: "#99E1DD",
+  infoDark: "#7CCCC7",
+  infoLight: "#E5F9F7",
+
+  warning: "#FDD444",
+  warningLight: "#FFF4CD",
+
+  background: "#F8FCFF",
+  surface: "#FFFFFF",
+  surfaceVariant: "#F0F7FC",
   card: "#FFFFFF",
-  text: "#9E3B3B", // Text merah gelap
-  textSecondary: "#D25353",
-  textLight: "#B57F7F", // Text lebih soft
-  border: "#FFD6D6", // Border lebih soft dari primary
-  borderLight: "#FFE8E8", // Border sangat lembut
 
-  // Success & Info
-  success: "#8BC34A",
-  successLight: "#DCEDC8",
-  info: "#64B5F6",
-  infoLight: "#BBDEFB",
+  text: "#2D3748",
+  textSecondary: "#718096",
+  textLight: "#A0AEC0",
+
+  border: "#E2E8F0",
+  borderLight: "#EDF2F7",
+
+  accent1: "#EF5B54",
+  accent2: "#FDD444",
+  accent3: "#9DCB37",
+  accent4: "#99E1DD",
+  accent5: "#63C7FD",
+  accent6: "#A78BFA",
+
+  shadow: "rgba(0, 0, 0, 0.08)",
+  overlay: "rgba(0, 0, 0, 0.4)",
+
+  lightPink: "#FFE9E5",
+  peach: "#FFF4CD",
+  softYellow: "#FFF4CD",
+  lavender: "#EDE9FE",
+  skyBlue: "#E5F9F7",
+
+  levelColors: {
+    level1: "#9DCB37",
+    level2: "#63C7FD",
+    level3: "#FDD444",
+    level4: "#EF5B54",
+  },
+
+  gradients: {
+    primary: ["#63C7FD", "#4BA3E0"],
+    success: ["#9DCB37", "#88B830"],
+    warning: ["#FDD444", "#F5C030"],
+    danger: ["#EF5B54", "#D84942"],
+    aqua: ["#99E1DD", "#7CCCC7"],
+  },
 };

@@ -1,39 +1,36 @@
 import { Router } from "express";
-import { requireAuth, type AuthedRequest } from "../middleware/auth";
+import { AuthedRequest, requireAuth } from "../middleware/auth";
 import * as profileService from "../services/profile.service";
-import { success, error } from "../utils/response";
+import { error, success } from "../utils/response";
 
 export const profileRouter = Router();
 
 profileRouter.get("/me", requireAuth, async (req, res) => {
-  const userId = (req as AuthedRequest).userId;
-
   try {
-    const profile = await profileService.getUserProfile(userId);
-    return success(res, profile);
+    const userId = (req as AuthedRequest).userId;
+    const data = await profileService.getUserProfile(userId);
+    return success(res, data);
   } catch (err: any) {
-    return error(res, err.code || "INTERNAL_ERROR", err.message, err.code === "USER_NOT_FOUND" ? 404 : 500);
+    return error(res, err.code || "SERVER_ERROR", err.message);
   }
 });
 
 profileRouter.get("/badges", requireAuth, async (req, res) => {
-  const userId = (req as AuthedRequest).userId;
-
   try {
-    const badges = await profileService.getUserBadges(userId);
-    return success(res, { badges });
+    const userId = (req as AuthedRequest).userId;
+    const data = await profileService.getUserBadges(userId);
+    return success(res, data);
   } catch (err: any) {
-    return error(res, err.code || "INTERNAL_ERROR", err.message, 500);
+    return error(res, err.code || "SERVER_ERROR", err.message);
   }
 });
 
 profileRouter.get("/progress", requireAuth, async (req, res) => {
-  const userId = (req as AuthedRequest).userId;
-
   try {
-    const progress = await profileService.getUserProgress(userId);
-    return success(res, { progress });
+    const userId = (req as AuthedRequest).userId;
+    const data = await profileService.getUserProgress(userId);
+    return success(res, data);
   } catch (err: any) {
-    return error(res, err.code || "INTERNAL_ERROR", err.message, 500);
+    return error(res, err.code || "SERVER_ERROR", err.message);
   }
 });

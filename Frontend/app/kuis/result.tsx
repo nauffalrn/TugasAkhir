@@ -8,11 +8,25 @@ import {
   Alert,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
-import { Container } from "../components/layout/container";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Colors } from "../constants/config";
-import type { QuizResult } from "../types";
+import { Ionicons } from "@expo/vector-icons";
+
+interface QuizResult {
+  score: number;
+  correct_count: number;
+  total_questions: number;
+  review?: Array<{
+    question_id: string;
+    prompt: string;
+    options: string[];
+    selected_index: number;
+    correct_index: number;
+    is_correct: boolean;
+    explanation?: string;
+  }>;
+}
 
 export default function ResultScreen() {
   const params = useLocalSearchParams<{
@@ -24,16 +38,6 @@ export default function ResultScreen() {
   let result: QuizResult;
   try {
     result = JSON.parse(params.resultData!);
-    console.log("=== FULL RESULT DATA ===");
-    console.log(JSON.stringify(result, null, 2));
-    console.log("=== REVIEW LENGTH ===", result.review?.length);
-    if (result.review?.[0]) {
-      console.log("=== FIRST REVIEW ITEM ===");
-      console.log("prompt:", result.review[0].prompt);
-      console.log("options:", result.review[0].options);
-      console.log("selected_index:", result.review[0].selected_index);
-      console.log("correct_index:", result.review[0].correct_index);
-    }
   } catch (error) {
     console.error("Failed to parse result:", error);
     Alert.alert("Error", "Gagal memuat hasil kuis");
@@ -43,309 +47,317 @@ export default function ResultScreen() {
 
   const [showReview, setShowReview] = useState(false);
   const isPassed = result.score >= 80;
+  const currentLevel = parseInt(params.level || "1");
+  const hasNextLevel = currentLevel < 4;
+  const percentage = Math.round(
+    (result.correct_count / result.total_questions) * 100,
+  );
 
-  function handleRetry() {
-    router.back();
-  }
-
-  function handleNextLevel() {
-    if (params.slug && params.level) {
-      const nextLevel = parseInt(params.level) + 1;
-      router.replace(`/kuis/attempt?slug=${params.slug}&level=${nextLevel}`);
-    }
-  }
-
-  function handleGoToMateri() {
-    router.replace("/tabs/materi");
+  function goToNextLevel() {
+    const nextLevel = currentLevel + 1;
+    router.replace(`/kuis/attempt?slug=${params.slug}&level=${nextLevel}`);
   }
 
   return (
-    <Container scroll>
-      {!showReview ? (
-        // Score Screen
-        <View style={styles.scoreContainer}>
-          <View style={styles.scoreCircle}>
-            <Text style={styles.scoreNumber}>{result.score}</Text>
-            <Text style={styles.scoreLabel}>Skor Kamu</Text>
-          </View>
-
-          <View style={styles.resultInfo}>
-            <Text style={styles.resultTitle}>
-              {isPassed ? "🎉 Luar Biasa!" : "💪 Tetap Semangat!"}
-            </Text>
-            <Text style={styles.resultDesc}>
-              {isPassed
-                ? result.unlocked_next_level
-                  ? "Kamu berhasil! Level berikutnya sudah terbuka"
-                  : "Kamu berhasil! Pertahankan prestasimu"
-                : "Jangan menyerah! Coba lagi dan kamu pasti bisa!"}
-            </Text>
-          </View>
-
-          {isPassed && (
-            <>
-              <Card style={styles.statsCard}>
-                <View style={styles.statsRow}>
-                  <View style={styles.statItem}>
-                    <Text
-                      style={[styles.statNumber, { color: Colors.success }]}
-                    >
-                      {result.correct_count}
-                    </Text>
-                    <Text style={styles.statLabel}>Benar</Text>
-                  </View>
-                  <View style={styles.statDivider} />
-                  <View style={styles.statItem}>
-                    <Text style={[styles.statNumber, { color: Colors.danger }]}>
-                      {result.total_questions - result.correct_count}
-                    </Text>
-                    <Text style={styles.statLabel}>Salah</Text>
-                  </View>
-                  <View style={styles.statDivider} />
-                  <View style={styles.statItem}>
-                    <Text style={[styles.statNumber, { color: Colors.info }]}>
-                      {result.total_questions}
-                    </Text>
-                    <Text style={styles.statLabel}>Total</Text>
-                  </View>
-                </View>
-              </Card>
-
-              {result.badge_earned && (
-                <Card style={styles.badgeCard}>
-                  <View style={styles.badgeContainer}>
-                    <Text style={styles.badgeIcon}>🏆</Text>
-                    <Text style={styles.badgeText}>Badge Baru Didapat!</Text>
-                  </View>
-                </Card>
-              )}
-            </>
-          )}
-
-          {/* Action Buttons */}
-          <View style={styles.actions}>
-            <TouchableOpacity
-              onPress={() => setShowReview(true)}
-              style={styles.reviewBtn}
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {!showReview ? (
+          // Score Screen
+          <>
+            <Card
+              style={StyleSheet.flatten([
+                styles.scoreCard,
+                isPassed ? styles.scoreCardPassed : styles.scoreCardFailed,
+              ])}
             >
-              <Text style={styles.reviewBtnText}>📝 Lihat Pembahasan</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={handleRetry} style={styles.retryBtn}>
-              <Text style={styles.retryBtnText}>🔄 Ulangi Kuis</Text>
-            </TouchableOpacity>
-
-            {isPassed && result.unlocked_next_level && (
-              <TouchableOpacity
-                onPress={handleNextLevel}
-                style={styles.nextBtn}
-              >
-                <Text style={styles.nextBtnText}>
-                  ➡️ Lanjut Level Berikutnya
+              <View style={styles.scoreHeader}>
+                <Text style={styles.scoreEmoji}>{isPassed ? "🎉" : "💪"}</Text>
+                <Text style={styles.scoreTitle}>
+                  {isPassed ? "Selamat!" : "Terus Semangat!"}
                 </Text>
+              </View>
+
+              <View style={styles.scoreCircle}>
+                <Text style={styles.scoreNumber}>{result.score}</Text>
+                <Text style={styles.scoreLabel}>Nilai</Text>
+              </View>
+
+              <View style={styles.statsRow}>
+                <View style={styles.statBox}>
+                  <Text style={styles.statNumber}>{result.correct_count}</Text>
+                  <Text style={styles.statLabel}>Benar</Text>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statBox}>
+                  <Text style={styles.statNumber}>
+                    {result.total_questions - result.correct_count}
+                  </Text>
+                  <Text style={styles.statLabel}>Salah</Text>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statBox}>
+                  <Text style={styles.statNumber}>{percentage}%</Text>
+                  <Text style={styles.statLabel}>Akurasi</Text>
+                </View>
+              </View>
+
+              {isPassed && (
+                <View style={styles.badgeBanner}>
+                  <Ionicons name="trophy" size={24} color={Colors.warning} />
+                  <Text style={styles.badgeText}>
+                    {hasNextLevel
+                      ? `Level ${currentLevel + 1} Unlocked! 🎊`
+                      : `Kamu Telah Menyelesaikan Semua Level! 👑`}
+                  </Text>
+                </View>
+              )}
+            </Card>
+
+            {/* Action Buttons */}
+            <View style={styles.actions}>
+              {isPassed && hasNextLevel && (
+                <Button
+                  title={`🚀 Lanjut ke Level ${currentLevel + 1}`}
+                  onPress={goToNextLevel}
+                  variant="success"
+                  size="large"
+                />
+              )}
+
+              <Button
+                title="📝 Lihat Pembahasan"
+                onPress={() => setShowReview(true)}
+                variant="outline"
+                size="large"
+              />
+
+              <Button
+                title="🔄 Coba Lagi"
+                onPress={() =>
+                  router.replace(
+                    `/kuis/attempt?slug=${params.slug}&level=${params.level}`,
+                  )
+                }
+                variant="primary"
+                size="large"
+              />
+
+              <Button
+                title="🏠 Kembali ke Menu"
+                onPress={() => router.replace("/tabs/kuis")}
+                variant="secondary"
+                size="large"
+              />
+            </View>
+          </>
+        ) : (
+          // Review Screen
+          <View style={styles.reviewContainer}>
+            <View style={styles.reviewHeaderContainer}>
+              <TouchableOpacity
+                onPress={() => setShowReview(false)}
+                style={styles.backBtn}
+              >
+                <Ionicons name="arrow-back" size={20} color={Colors.primary} />
+                <Text style={styles.backBtnText}>Kembali</Text>
               </TouchableOpacity>
-            )}
+              <Text style={styles.reviewTitle}>Pembahasan Soal</Text>
+            </View>
 
-            <TouchableOpacity
-              onPress={handleGoToMateri}
-              style={styles.materiBtn}
-            >
-              <Text style={styles.materiBtnText}>📚 Kembali ke Materi</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : (
-        // Review Screen
-        <View style={styles.reviewContainer}>
-          <View style={styles.reviewHeaderContainer}>
-            <TouchableOpacity
-              onPress={() => setShowReview(false)}
-              style={styles.backBtn}
-            >
-              <Text style={styles.backBtnText}>← Kembali</Text>
-            </TouchableOpacity>
-            <Text style={styles.reviewTitle}>Pembahasan Soal</Text>
-          </View>
+            {result.review?.map((item, index) => {
+              const selectedAnswer = item.options?.[item.selected_index];
+              const correctAnswer = item.options?.[item.correct_index];
 
-          {result.review?.map((item, index) => {
-            console.log(`=== ITEM ${index} ===`, {
-              prompt: item.prompt,
-              options: item.options,
-              selected_index: item.selected_index,
-              correct_index: item.correct_index,
-            });
-
-            const selectedAnswer = item.options?.[item.selected_index];
-            const correctAnswer = item.options?.[item.correct_index];
-
-            console.log(
-              `Selected: ${selectedAnswer}, Correct: ${correctAnswer}`,
-            );
-
-            return (
-              <Card key={item.question_id} style={styles.reviewCard}>
-                <View style={styles.reviewItem}>
-                  <View style={styles.reviewHeader}>
-                    <Text style={styles.reviewNumber}>Soal {index + 1}</Text>
-                    <View
-                      style={[
-                        styles.reviewBadge,
-                        item.is_correct
-                          ? styles.reviewBadgeCorrect
-                          : styles.reviewBadgeWrong,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.reviewBadgeText,
-                          item.is_correct
-                            ? { color: Colors.success }
-                            : { color: Colors.danger },
-                        ]}
-                      >
-                        {item.is_correct ? "✓ Benar" : "✗ Salah"}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Tampilkan soal */}
-                  <View style={styles.questionBox}>
-                    <Text style={styles.questionText}>
-                      {item.prompt || "Soal tidak tersedia"}
-                    </Text>
-                  </View>
-
-                  {/* Always show answer info */}
-                  <View style={styles.answerInfo}>
-                    <View style={styles.answerRow}>
-                      <Text style={styles.answerLabel}>Jawaban kamu:</Text>
+              return (
+                <Card
+                  key={item.question_id}
+                  style={
+                    item.is_correct
+                      ? styles.reviewCardCorrect
+                      : styles.reviewCardWrong
+                  }
+                >
+                  <View style={styles.reviewItem}>
+                    <View style={styles.reviewHeader}>
+                      <Text style={styles.reviewNumber}>Soal {index + 1}</Text>
                       <View
-                        style={[
-                          styles.answerBadge,
-                          item.is_correct && styles.answerBadgeCorrect,
-                        ]}
+                        style={
+                          item.is_correct
+                            ? styles.reviewBadgeCorrect
+                            : styles.reviewBadgeWrong
+                        }
                       >
                         <Text
-                          style={
+                          style={[
+                            styles.reviewBadgeText,
                             item.is_correct
-                              ? styles.answerCorrectText
-                              : styles.answerWrongText
-                          }
+                              ? { color: Colors.success }
+                              : { color: Colors.danger },
+                          ]}
                         >
-                          {selectedAnswer || "N/A"}
+                          {item.is_correct ? "✓ Benar" : "✗ Salah"}
                         </Text>
                       </View>
                     </View>
-                    {!item.is_correct && (
-                      <View style={styles.answerRow}>
-                        <Text style={styles.answerLabel}>Jawaban benar:</Text>
+
+                    <View style={styles.questionBox}>
+                      <Text style={styles.questionText}>
+                        {item.prompt || "Soal tidak tersedia"}
+                      </Text>
+                    </View>
+
+                    <View style={styles.answerInfo}>
+                      <View style={styles.answerSection}>
+                        <Text style={styles.answerLabel}>Jawaban kamu:</Text>
                         <View
-                          style={[
-                            styles.answerBadge,
-                            styles.answerBadgeCorrect,
-                          ]}
+                          style={
+                            item.is_correct
+                              ? styles.answerBoxCorrect
+                              : styles.answerBoxWrong
+                          }
                         >
-                          <Text style={styles.answerCorrectText}>
-                            {correctAnswer || "N/A"}
+                          <Text style={styles.answerText}>
+                            {selectedAnswer || "N/A"}
                           </Text>
                         </View>
                       </View>
+
+                      {!item.is_correct && (
+                        <View style={styles.answerSection}>
+                          <Text style={styles.answerLabel}>Jawaban benar:</Text>
+                          <View style={styles.answerBoxCorrect}>
+                            <Text style={styles.answerText}>
+                              {correctAnswer || "N/A"}
+                            </Text>
+                          </View>
+                        </View>
+                      )}
+                    </View>
+
+                    {item.explanation && (
+                      <View style={styles.explanationBox}>
+                        <View style={styles.explanationHeader}>
+                          <Ionicons
+                            name="bulb"
+                            size={20}
+                            color={Colors.warning}
+                          />
+                          <Text style={styles.explanationLabel}>
+                            Penjelasan:
+                          </Text>
+                        </View>
+                        <Text style={styles.explanationText}>
+                          {item.explanation}
+                        </Text>
+                      </View>
                     )}
                   </View>
+                </Card>
+              );
+            })}
 
-                  {item.explanation && (
-                    <View style={styles.explanationBox}>
-                      <Text style={styles.explanationLabel}>
-                        💡 Pembahasan:
-                      </Text>
-                      <Text style={styles.explanationText}>
-                        {item.explanation}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </Card>
-            );
-          })}
-
-          <TouchableOpacity
-            onPress={() => setShowReview(false)}
-            style={styles.doneBtn}
-          >
-            <Text style={styles.doneBtnText}>Selesai</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </Container>
+            <Button
+              title="✓ Selesai"
+              onPress={() => setShowReview(false)}
+              variant="primary"
+              size="large"
+              style={styles.doneBtn}
+            />
+          </View>
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scoreContainer: {
-    alignItems: "center",
-    paddingVertical: 24,
-    paddingHorizontal: 16,
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    paddingTop: 60,
   },
-  scoreCircle: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: Colors.primary,
-    justifyContent: "center",
+  content: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 100,
+  },
+  scoreCard: {
+    paddingVertical: 32,
+    paddingHorizontal: 24,
     alignItems: "center",
     marginBottom: 24,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
   },
-  scoreNumber: {
+  scoreCardPassed: {
+    backgroundColor: Colors.successLight,
+    borderWidth: 2,
+    borderColor: Colors.success,
+  },
+  scoreCardFailed: {
+    backgroundColor: Colors.dangerLight,
+    borderWidth: 2,
+    borderColor: Colors.danger,
+  },
+  scoreHeader: {
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  scoreEmoji: {
     fontSize: 64,
-    fontFamily: "Galano-ExtraBold",
-    color: Colors.card,
+    marginBottom: 12,
   },
-  scoreLabel: {
-    fontSize: 16,
-    fontFamily: "Galano-SemiBold",
-    color: Colors.card,
-    marginTop: 8,
-  },
-  resultInfo: {
-    alignItems: "center",
-    marginBottom: 24,
-    paddingHorizontal: 20,
-  },
-  resultTitle: {
+  scoreTitle: {
     fontSize: 28,
     fontFamily: "Galano-Bold",
     color: Colors.text,
-    marginBottom: 8,
-    textAlign: "center",
   },
-  resultDesc: {
+  scoreCircle: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: Colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 24,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  scoreNumber: {
+    fontSize: 48,
+    fontFamily: "Galano-Bold",
+    color: Colors.primary,
+  },
+  scoreLabel: {
     fontSize: 16,
     fontFamily: "Galano",
     color: Colors.textSecondary,
-    textAlign: "center",
-    lineHeight: 24,
-  },
-  statsCard: {
-    backgroundColor: Colors.softYellow,
-    marginBottom: 16,
+    marginTop: 4,
   },
   statsRow: {
     flexDirection: "row",
-    justifyContent: "space-around",
     alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+    paddingVertical: 16,
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
   },
-  statItem: {
+  statBox: {
     alignItems: "center",
     flex: 1,
   },
   statNumber: {
-    fontSize: 32,
+    fontSize: 28,
     fontFamily: "Galano-Bold",
+    color: Colors.text,
   },
   statLabel: {
     fontSize: 14,
@@ -358,93 +370,31 @@ const styles = StyleSheet.create({
     height: 40,
     backgroundColor: Colors.border,
   },
-  badgeCard: {
-    backgroundColor: Colors.lavender,
-    marginBottom: 16,
-  },
-  badgeContainer: {
+  badgeBanner: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 8,
+    marginTop: 20,
+    backgroundColor: Colors.warningLight,
+    paddingHorizontal: 20,
     paddingVertical: 12,
-  },
-  badgeIcon: {
-    fontSize: 48,
-    marginBottom: 8,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: Colors.warning,
   },
   badgeText: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: "Galano-Bold",
-    color: Colors.warning,
+    color: Colors.text,
+    flex: 1,
   },
   actions: {
     width: "100%",
     gap: 12,
-    marginTop: 24,
-  },
-  reviewBtn: {
-    backgroundColor: Colors.lightPink,
-    padding: 16,
-    borderRadius: 16,
-    alignItems: "center",
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  reviewBtnText: {
-    fontSize: 16,
-    fontFamily: "Galano-Bold",
-    color: Colors.danger,
-  },
-  retryBtn: {
-    backgroundColor: Colors.peach,
-    padding: 16,
-    borderRadius: 16,
-    alignItems: "center",
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  retryBtnText: {
-    fontSize: 16,
-    fontFamily: "Galano-Bold",
-    color: Colors.secondary,
-  },
-  nextBtn: {
-    backgroundColor: Colors.successLight,
-    padding: 16,
-    borderRadius: 16,
-    alignItems: "center",
-    shadowColor: Colors.success,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  nextBtnText: {
-    fontSize: 16,
-    fontFamily: "Galano-Bold",
-    color: Colors.success,
-  },
-  materiBtn: {
-    backgroundColor: Colors.card,
-    borderWidth: 2,
-    borderColor: Colors.border,
-    padding: 16,
-    borderRadius: 16,
-    alignItems: "center",
-  },
-  materiBtnText: {
-    fontSize: 16,
-    fontFamily: "Galano-SemiBold",
-    color: Colors.textSecondary,
+    marginTop: 8,
   },
   // Review styles
   reviewContainer: {
-    paddingTop: 16,
-    paddingHorizontal: 16,
     paddingBottom: 24,
   },
   reviewHeaderContainer: {
@@ -454,24 +404,44 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backBtn: {
-    padding: 8,
-    backgroundColor: Colors.lightPink,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: Colors.primaryLight,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 12,
   },
   backBtnText: {
     fontSize: 16,
-    fontFamily: "Galano-SemiBold",
+    fontFamily: "Galano-Bold",
     color: Colors.primary,
   },
   reviewTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontFamily: "Galano-Bold",
     color: Colors.text,
     flex: 1,
   },
   reviewCard: {
     marginBottom: 16,
-    backgroundColor: Colors.card,
+    padding: 20,
+  },
+  reviewCardCorrect: {
+    backgroundColor: Colors.surface,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.success,
+    marginBottom: 16,
+    padding: 20,
+    borderRadius: 20,
+  },
+  reviewCardWrong: {
+    backgroundColor: Colors.surface,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.danger,
+    marginBottom: 16,
+    padding: 20,
+    borderRadius: 20,
   },
   reviewItem: {
     gap: 16,
@@ -480,7 +450,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
   },
   reviewNumber: {
     fontSize: 18,
@@ -494,62 +463,84 @@ const styles = StyleSheet.create({
   },
   reviewBadgeCorrect: {
     backgroundColor: Colors.successLight,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
   },
   reviewBadgeWrong: {
     backgroundColor: Colors.lightPink,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
   },
   reviewBadgeText: {
     fontSize: 14,
     fontFamily: "Galano-SemiBold",
   },
-  answerInfo: {
-    gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+  questionBox: {
+    padding: 16,
     backgroundColor: Colors.background,
     borderRadius: 12,
   },
-  answerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  questionText: {
+    fontSize: 16,
+    fontFamily: "Galano-Medium",
+    color: Colors.text,
+    lineHeight: 24,
+  },
+  answerInfo: {
+    gap: 12,
+  },
+  answerSection: {
+    gap: 8,
   },
   answerLabel: {
+    fontSize: 14,
+    fontFamily: "Galano-SemiBold",
+    color: Colors.textSecondary,
+  },
+  answerBox: {
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 2,
+  },
+  answerBoxCorrect: {
+    backgroundColor: Colors.successLight,
+    borderColor: Colors.success,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 2,
+  },
+  answerBoxWrong: {
+    backgroundColor: Colors.dangerLight,
+    borderColor: Colors.danger,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 2,
+  },
+  answerText: {
     fontSize: 15,
     fontFamily: "Galano-Medium",
-    color: Colors.textLight,
-  },
-  answerBadge: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 12,
-    backgroundColor: Colors.lightPink,
-  },
-  answerBadgeCorrect: {
-    backgroundColor: Colors.successLight,
-  },
-  answerWrongText: {
-    fontSize: 15,
-    fontFamily: "Galano-Bold",
-    color: Colors.danger,
-  },
-  answerCorrectText: {
-    fontSize: 15,
-    fontFamily: "Galano-Bold",
-    color: Colors.success,
+    color: Colors.text,
+    lineHeight: 22,
   },
   explanationBox: {
-    backgroundColor: Colors.skyBlue,
     padding: 16,
+    backgroundColor: Colors.warningLight,
     borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.info,
+    borderWidth: 1,
+    borderColor: Colors.warning,
+  },
+  explanationHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
   },
   explanationLabel: {
-    fontSize: 15,
-    fontFamily: "Galano-SemiBold",
-    color: Colors.info,
-    marginBottom: 8,
+    fontSize: 16,
+    fontFamily: "Galano-Bold",
+    color: Colors.text,
   },
   explanationText: {
     fontSize: 14,
@@ -558,34 +549,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   doneBtn: {
-    backgroundColor: Colors.primary,
-    padding: 16,
-    borderRadius: 16,
-    alignItems: "center",
     marginTop: 8,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  doneBtnText: {
-    fontSize: 16,
-    fontFamily: "Galano-Bold",
-    color: Colors.card,
-  },
-  questionBox: {
-    backgroundColor: Colors.background,
-    padding: 12,
-    borderRadius: 8,
-    marginVertical: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.primary,
-  },
-  questionText: {
-    fontSize: 16,
-    fontFamily: "Galano-Medium",
-    color: Colors.text,
-    lineHeight: 24,
   },
 });

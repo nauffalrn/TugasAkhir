@@ -9,11 +9,19 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { api } from "../lib/api";
-import { Container } from "../components/layout/container";
-import { Card } from "../components/ui/card";
 import { Loading } from "../components/ui/loading";
 import { Colors } from "../constants/config";
 import type { Topic } from "../types";
+import { Ionicons } from "@expo/vector-icons";
+
+const topicColors = [
+  { bg: Colors.accent3, light: Colors.successLight },
+  { bg: Colors.accent5, light: Colors.primaryLight },
+  { bg: Colors.accent2, light: Colors.secondaryLight },
+  { bg: Colors.accent1, light: Colors.dangerLight },
+  { bg: Colors.accent4, light: Colors.infoLight },
+  { bg: Colors.accent6, light: "#EDE9FE" },
+];
 
 export default function KuisScreen() {
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -37,89 +45,123 @@ export default function KuisScreen() {
   if (loading) return <Loading />;
 
   return (
-    <Container scroll>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>🎮 Kuis</Text>
-          <Text style={styles.subtitle}>Uji kemampuanmu dengan kuis seru!</Text>
-        </View>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>🎮 Pilih Kuis</Text>
+        <Text style={styles.headerSubtitle}>
+          Uji pemahamanmu dengan kuis interaktif!
+        </Text>
+      </View>
 
-        <FlatList
-          data={topics}
-          keyExtractor={(item) => item.slug}
-          renderItem={({ item, index }) => (
+      <FlatList
+        data={topics}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item, index }) => {
+          const color = topicColors[index % topicColors.length];
+          return (
             <TouchableOpacity
               onPress={() =>
                 router.push(`/kuis/select-level?slug=${item.slug}`)
               }
-              activeOpacity={0.7}
+              style={styles.topicCardWrapper}
+              activeOpacity={0.8}
             >
-              <Card style={styles.topicCard}>
+              <View
+                style={[styles.topicCard, { backgroundColor: color.light }]}
+              >
                 <View style={styles.topicHeader}>
-                  <Text style={styles.quizIcon}>📝</Text>
-                  <View style={styles.topicInfo}>
-                    <Text style={styles.topicTitle}>{item.title}</Text>
+                  <View
+                    style={[styles.iconCircle, { backgroundColor: color.bg }]}
+                  >
+                    <Ionicons
+                      name="game-controller"
+                      size={24}
+                      color="#FFFFFF"
+                    />
                   </View>
                 </View>
-              </Card>
+                <Text style={styles.topicTitle}>{item.title}</Text>
+                <View style={styles.topicFooter}>
+                  <Text style={[styles.topicAction, { color: color.bg }]}>
+                    Mulai Kuis
+                  </Text>
+                  <Ionicons name="arrow-forward" size={20} color={color.bg} />
+                </View>
+              </View>
             </TouchableOpacity>
-          )}
-          contentContainerStyle={styles.list}
-          scrollEnabled={false}
-        />
-      </View>
-    </Container>
+          );
+        }}
+        contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
-    paddingTop: 24,
+    flex: 1,
+    backgroundColor: Colors.background,
+    paddingTop: 60,
   },
   header: {
-    marginBottom: 24,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    backgroundColor: Colors.background,
   },
-  title: {
+  headerTitle: {
     fontSize: 28,
     fontFamily: "Galano-Bold",
     color: Colors.text,
     marginBottom: 8,
   },
-  subtitle: {
+  headerSubtitle: {
     fontSize: 16,
     fontFamily: "Galano",
     color: Colors.textSecondary,
   },
   list: {
-    gap: 12,
-    paddingBottom: 20,
+    paddingHorizontal: 16,
+    paddingBottom: 100,
+  },
+  topicCardWrapper: {
+    marginBottom: 16,
   },
   topicCard: {
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.secondary,
-    backgroundColor: Colors.peach + "30",
+    borderRadius: 24,
+    padding: 20,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 5,
   },
   topicHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 16,
+    marginBottom: 16,
   },
-  quizIcon: {
-    fontSize: 36,
-  },
-  topicInfo: {
-    flex: 1,
+  iconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
   },
   topicTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontFamily: "Galano-Bold",
     color: Colors.text,
-    marginBottom: 4,
+    marginBottom: 16,
+    lineHeight: 28,
   },
-  topicSubtitle: {
-    fontSize: 14,
-    fontFamily: "Galano",
-    color: Colors.textSecondary,
+  topicFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  topicAction: {
+    fontSize: 16,
+    fontFamily: "Galano-Bold",
   },
 });

@@ -1,29 +1,19 @@
-const express = require("express");
-const cors = require("cors");
-const helmet = require("helmet");
-
-import { env } from "./config/env";
+import cors from "cors";
+import express from "express";
 import { authRouter } from "./routes/auth";
+import { profileRouter } from "./routes/profiles";
 import { quizRouter } from "./routes/quiz";
 import topicsRouter from "./routes/topics";
-import { profileRouter } from "./routes/profiles";
 
 export function createApp() {
   const app = express();
 
-  app.use(helmet());
+  app.use(cors());
   app.use(express.json());
 
-  app.use(
-    cors({
-      origin: env.CORS_ORIGIN
-        ? env.CORS_ORIGIN.split(",").map((s) => s.trim())
-        : true,
-      credentials: true,
-    }),
-  );
-
-  app.get("/health", (_req: any, res: any) => res.json({ ok: true }));
+  app.get("/health", (req, res) => {
+    res.json({ ok: true, message: "Server is running" });
+  });
 
   app.use("/auth", authRouter);
   app.use("/topics", topicsRouter);

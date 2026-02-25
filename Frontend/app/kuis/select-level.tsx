@@ -1,40 +1,47 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  ScrollView,
+} from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { Container } from "../components/layout/container";
-import { Card } from "../components/ui/card";
 import { Loading } from "../components/ui/loading";
 import { Colors } from "../constants/config";
 import { api } from "../lib/api";
+import { Ionicons } from "@expo/vector-icons";
 
-const LEVELS = [
+const levelConfigs = [
   {
     level: 1,
-    label: "Level 1 - Pemula",
+    title: "Pemula",
     icon: "🌱",
-    time: "Tanpa batas waktu",
-    color: Colors.success,
+    color: Colors.levelColors.level1,
+    lightColor: Colors.successLight,
   },
   {
     level: 2,
-    label: "Level 2 - Penjelajah",
-    icon: "🎒",
-    time: "Tanpa batas waktu",
-    color: Colors.info,
+    title: "Menengah",
+    icon: "🌟",
+    color: Colors.levelColors.level2,
+    lightColor: Colors.primaryLight,
   },
   {
     level: 3,
-    label: "Level 3 - Ahli",
-    icon: "🏆",
-    time: "Batas waktu 30 menit",
-    color: Colors.warning,
+    title: "Mahir",
+    icon: "🔥",
+    color: Colors.levelColors.level3,
+    lightColor: Colors.secondaryLight,
   },
   {
     level: 4,
-    label: "Level 4 - Master",
-    icon: "⭐",
-    time: "Batas waktu 15 menit",
-    color: Colors.danger,
+    title: "Expert",
+    icon: "👑",
+    color: Colors.levelColors.level4,
+    lightColor: Colors.dangerLight,
   },
 ];
 
@@ -95,6 +102,12 @@ export default function SelectLevel() {
     return level <= progress.highest_level_unlocked;
   }
 
+  function getLevelScore(level: number): number | null {
+    if (!progress) return null;
+    const key = `best_score_l${level}` as keyof Progress;
+    return progress[key] as number | null;
+  }
+
   function getPreviousScore(level: number): number | null {
     if (!progress || level === 1) return null;
     const key = `best_score_l${level - 1}` as keyof Progress;
@@ -132,79 +145,99 @@ export default function SelectLevel() {
           </Text>
         </View>
 
-        {LEVELS.map((item) => {
-          const unlocked = isLevelUnlocked(item.level);
-          const prevScore = getPreviousScore(item.level);
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {levelConfigs.map((config) => {
+            const unlocked = isLevelUnlocked(config.level);
+            const score = getLevelScore(config.level);
 
-          return (
-            <TouchableOpacity
-              key={item.level}
-              onPress={() => startQuiz(item.level)}
-              activeOpacity={unlocked ? 0.7 : 1}
-              style={styles.levelCardWrapper}
-              disabled={!unlocked}
-            >
-              <View
+            return (
+              <TouchableOpacity
+                key={config.level}
                 style={[
-                  styles.levelCardBorder,
-                  { borderLeftColor: unlocked ? item.color : "#CCCCCC" },
+                  styles.levelCard,
+                  {
+                    backgroundColor: unlocked
+                      ? config.lightColor
+                      : Colors.borderLight,
+                  },
                 ]}
+                onPress={() => startQuiz(config.level)}
+                disabled={!unlocked}
+                activeOpacity={0.8}
               >
-                <Card style={unlocked ? {} : styles.lockedCard}>
-                  <View style={styles.levelContent}>
-                    <View
-                      style={[
-                        styles.iconContainer,
-                        {
-                          backgroundColor: unlocked
-                            ? item.color + "20"
-                            : "#F0F0F0",
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.levelIcon,
-                          !unlocked && styles.lockedIcon,
-                        ]}
-                      >
-                        {unlocked ? item.icon : "🔒"}
-                      </Text>
-                    </View>
-                    <View style={styles.levelInfo}>
-                      <Text
-                        style={[
-                          styles.levelLabel,
-                          !unlocked && styles.lockedText,
-                        ]}
-                      >
-                        {item.label}
-                      </Text>
-                      {unlocked ? (
-                        <View style={styles.levelTime}>
-                          <Text style={styles.levelTimeIcon}>⏱</Text>
-                          <Text style={styles.levelTimeText}>{item.time}</Text>
-                        </View>
-                      ) : (
-                        <View style={styles.lockInfo}>
-                          <Text style={styles.lockText}>
-                            🔓 Selesaikan Level {item.level - 1} dengan nilai
-                            ≥80
-                          </Text>
-                          {prevScore !== null && (
-                            <Text style={styles.lockScore}>
-                              Nilai terbaik Level {item.level - 1}: {prevScore}
-                            </Text>
-                          )}
-                        </View>
-                      )}
-                    </View>
+                <View style={styles.levelHeader}>
+                  <View
+                    style={[
+                      styles.levelIconCircle,
+                      {
+                        backgroundColor: unlocked
+                          ? config.color
+                          : Colors.border,
+                      },
+                    ]}
+                  >
+                    <Text style={styles.levelIcon}>{config.icon}</Text>
                   </View>
-                </Card>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
+                  {!unlocked && (
+                    <View style={styles.lockBadge}>
+                      <Ionicons
+                        name="lock-closed"
+                        size={16}
+                        color={Colors.textLight}
+                      />
+                    </View>
+                  )}
+                </View>
+
+                <Text
+                  style={[
+                    styles.levelTitle,
+                    { color: unlocked ? Colors.text : Colors.textLight },
+                  ]}
+                >
+                  Level {config.level}
+                </Text>
+                <Text
+                  style={[
+                    styles.levelSubtitle,
+                    {
+                      color: unlocked ? Colors.textSecondary : Colors.textLight,
+                    },
+                  ]}
+                >
+                  {config.title}
+                </Text>
+
+                {score !== null && (
+                  <View
+                    style={[
+                      styles.scoreBadge,
+                      { backgroundColor: config.color },
+                    ]}
+                  >
+                    <Ionicons name="star" size={14} color="#FFFFFF" />
+                    <Text style={styles.scoreText}>{score}</Text>
+                  </View>
+                )}
+
+                {unlocked && (
+                  <View
+                    style={[
+                      styles.playButton,
+                      { backgroundColor: config.color },
+                    ]}
+                  >
+                    <Ionicons name="play" size={20} color="#FFFFFF" />
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
     </Container>
   );
@@ -212,11 +245,14 @@ export default function SelectLevel() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
-    paddingTop: 24,
+    flex: 1,
+    backgroundColor: Colors.background,
+    paddingTop: 60,
   },
   header: {
-    marginBottom: 24,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    backgroundColor: Colors.background,
   },
   title: {
     fontSize: 28,
@@ -229,78 +265,86 @@ const styles = StyleSheet.create({
     fontFamily: "Galano",
     color: Colors.textSecondary,
   },
-  levelCardWrapper: {
+  levelCard: {
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 5,
+    position: "relative",
+  },
+  levelHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 16,
   },
-  levelCardBorder: {
-    borderLeftWidth: 6,
-    borderRadius: 12,
-    overflow: "hidden",
-  },
-  levelContent: {
-    flexDirection: "row",
+  levelIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: "center",
-    gap: 16,
-  },
-  iconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 16,
     justifyContent: "center",
-    alignItems: "center",
   },
   levelIcon: {
     fontSize: 32,
   },
-  levelInfo: {
-    flex: 1,
+  lockBadge: {
+    backgroundColor: Colors.border,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  levelLabel: {
-    fontSize: 18,
+  levelTitle: {
+    fontSize: 24,
     fontFamily: "Galano-Bold",
-    color: Colors.text,
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  levelTime: {
+  levelSubtitle: {
+    fontSize: 16,
+    fontFamily: "Galano-Medium",
+  },
+  scoreBadge: {
+    position: "absolute",
+    top: 20,
+    right: 20,
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    backgroundColor: Colors.background,
-    alignSelf: "flex-start",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  levelTimeIcon: {
-    fontSize: 14,
-  },
-  levelTimeText: {
-    fontSize: 13,
-    fontFamily: "Galano-Medium",
-    color: Colors.text,
-  },
-  lockedCard: {
-    backgroundColor: "#F8F8F8",
-    opacity: 0.7,
-  },
-  lockedIcon: {
-    opacity: 0.5,
-  },
-  lockedText: {
-    color: "#999999",
-  },
-  lockInfo: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
     gap: 4,
   },
-  lockText: {
+  scoreText: {
+    color: "#FFFFFF",
     fontSize: 14,
-    fontFamily: "Galano-Medium",
-    color: "#666666",
+    fontFamily: "Galano-Bold",
   },
-  lockScore: {
-    fontSize: 12,
-    fontFamily: "Galano",
-    color: "#999999",
-    fontStyle: "italic",
+  playButton: {
+    position: "absolute",
+    bottom: 20,
+    right: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 100,
   },
 });
