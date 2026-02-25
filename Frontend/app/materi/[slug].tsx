@@ -36,8 +36,15 @@ export default function MateriDetail() {
     }
   }
 
-  function startQuiz() {
-    router.push(`/kuis/select-level?slug=${slug}`);
+  // Di tombol "Kerjakan Kuis"
+  function handleStartQuiz() {
+    if (!topic) return;
+    router.push({
+      pathname: "/kuis/select-level",
+      params: {
+        topicSlug: topic.slug,
+      },
+    });
   }
 
   if (loading) return <Loading />;
@@ -72,7 +79,7 @@ export default function MateriDetail() {
           </Text>
         )}
 
-        <Button title="Mulai Kuis" onPress={startQuiz} />
+        <Button title="Mulai Kuis" onPress={handleStartQuiz} />
       </ScrollView>
     </View>
   );

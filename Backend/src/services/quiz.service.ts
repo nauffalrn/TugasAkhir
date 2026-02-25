@@ -19,10 +19,9 @@ export async function startQuiz(
   // 2) Cek unlock level (L2+ butuh best score level sebelumnya ≥80)
   if (level > 1) {
     const progress = await progressRepo.findProgress(userId, topic.id);
-    const prevBestKey = `best_score_l${level - 1}` as keyof typeof progress;
-    const prevBest = progress?.[prevBestKey];
 
-    if (!prevBest || (prevBest as number) < 80) {
+    // Cek apakah level ini sudah unlocked
+    if (!progress || progress.highest_level_unlocked < level) {
       throw {
         code: "LEVEL_LOCKED",
         message: `Level ${level} terkunci. Selesaikan level ${level - 1} dengan nilai ≥80`,
@@ -135,20 +134,23 @@ export async function submitQuiz(
   await quizRepo.saveAnswers(actualAttemptId, answerRecords);
   await quizRepo.updateAttemptSubmit(actualAttemptId, correctCount, score);
 
-  // 6) Update progress
+  // 6) Update progress - FIXED LOGIC
   const currentProgress = await progressRepo.findProgress(userId, topicId);
   const bestKey = `best_score_l${level}`;
   const currentBest = currentProgress?.[
     bestKey as keyof typeof currentProgress
   ] as number | null;
+
+  // Update best score
   const newBest = !currentBest || score > currentBest ? score : currentBest;
 
-  const newHighest =
-    score >= 80 &&
-    level >= (currentProgress?.highest_level_unlocked || 1) &&
-    level < 4
-      ? level + 1
-      : currentProgress?.highest_level_unlocked || 1;
+  // Calculate new highest unlocked level
+  let newHighest = currentProgress?.highest_level_unlocked || 1;
+
+  // Jika score >= 80 DAN level < 4, unlock level berikutnya
+  if (score >= 80 && level < 4) {
+    newHighest = Math.max(newHighest, level + 1);
+  }
 
   const upsertData: any = {
     user_id: userId,

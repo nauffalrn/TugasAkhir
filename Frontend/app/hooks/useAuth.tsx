@@ -5,9 +5,15 @@ import React, {
   useEffect,
   ReactNode,
 } from "react";
+import { router } from "expo-router";
 import { api } from "../lib/api";
-import { saveToken, getToken, removeToken } from "../lib/storage";
-import type { User } from "../types";
+import { storage } from "../lib/storage";
+
+interface User {
+  id: string;
+  email: string;
+  username?: string;
+}
 
 interface AuthContextType {
   user: User | null;
@@ -16,7 +22,7 @@ interface AuthContextType {
   register: (
     email: string,
     password: string,
-    username?: string,
+    username: string,
   ) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -35,18 +41,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function checkAuth() {
     console.log("🔐 Checking authentication...");
     try {
-      const token = await getToken();
+      const token = await storage.getToken();
       if (token) {
         console.log("  - Token found, fetching user profile");
         const res = await api.get("/profile/me");
-        setUser(res.data.data.user);
-        console.log("  - User authenticated:", res.data.data.user.email);
+        setUser(res.data.data);
+        console.log("  - User authenticated:", res.data.data.email);
       } else {
         console.log("  - No token found");
       }
     } catch (error) {
       console.error("  - Auth check failed:", error);
-      await removeToken();
+      await storage.removeToken();
     } finally {
       setLoading(false);
     }
@@ -56,23 +62,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log("🔑 Login attempt:", email);
     try {
       const res = await api.post("/auth/login", { email, password });
-      const { token, user } = res.data.data;
-      await saveToken(token);
-      setUser(user);
-      console.log("✅ Login successful:", user.email);
+      const { token, user: userData } = res.data.data;
+
+      await storage.setToken(token);
+      setUser(userData);
+
+      // Navigate to tabs setelah login sukses
+      router.replace("/tabs/materi");
+      console.log("✅ Login successful:", userData.email);
     } catch (error) {
       console.error("❌ Login failed:", error);
       throw error;
     }
   }
 
-  async function register(email: string, password: string, username?: string) {
+  async function register(email: string, password: string, username: string) {
     console.log("📝 Register attempt:", { email, username });
     try {
-      await api.post("/auth/register", { email, password, username });
+      const res = await api.post("/auth/register", {
+        email,
+        password,
+        username,
+      });
+      const { token, user: userData } = res.data.data;
+
+      await storage.setToken(token);
+      setUser(userData);
+
+      // Navigate to tabs setelah register sukses
+      router.replace("/tabs/materi");
       console.log("✅ Registration successful, auto-login...");
       // Auto-login setelah register
-      await login(email, password);
+      // await login(email, password);
     } catch (error) {
       console.error("❌ Registration failed:", error);
       throw error;
@@ -80,9 +101,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function logout() {
-    console.log("👋 Logout");
-    await removeToken();
-    setUser(null);
+    try {
+      console.log("👋 Logout");
+
+      // 1. Hapus token dari storage
+      await storage.removeToken();
+
+      // 2. Reset user state
+      setUser(null);
+
+      // 3. Navigate ke login screen
+      router.replace("/auth/login");
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
   }
 
   return (

@@ -61,7 +61,7 @@ export default function KuisScreen() {
           return (
             <TouchableOpacity
               onPress={() =>
-                router.push(`/kuis/select-level?slug=${item.slug}`)
+                router.push(`/kuis/select-level?topicSlug=${item.slug}`)
               }
               style={styles.topicCardWrapper}
               activeOpacity={0.8}

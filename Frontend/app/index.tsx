@@ -1,14 +1,23 @@
 import { Redirect } from "expo-router";
 import { useAuth } from "./hooks/useAuth";
-import { Loading } from "./components/ui/loading";
+import { View, ActivityIndicator } from "react-native";
+import { Colors } from "./constants/config";
 
 export default function Index() {
   const { user, loading } = useAuth();
 
-  if (loading) return <Loading />;
-  return user ? (
-    <Redirect href="/tabs/materi" />
-  ) : (
-    <Redirect href="/auth/login" />
-  );
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
+  // Redirect berdasarkan auth status
+  if (user) {
+    return <Redirect href="/tabs/materi" />;
+  }
+
+  return <Redirect href="/auth/login" />;
 }

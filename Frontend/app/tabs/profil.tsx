@@ -6,6 +6,7 @@ import {
   ScrollView,
   Image,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { useAuth } from "../hooks/useAuth";
 import { Colors } from "../constants/config";
@@ -29,6 +30,7 @@ export default function ProfilScreen() {
   const [profile, setProfile] = useState<any>(null);
   const [badges, setBadges] = useState<Badge[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     loadProfile();
@@ -53,6 +55,30 @@ export default function ProfilScreen() {
     } catch (err) {
       console.error("Load badges error:", err);
     }
+  }
+
+  async function handleLogout() {
+    Alert.alert("Konfirmasi Logout", "Apakah Anda yakin ingin keluar?", [
+      {
+        text: "Batal",
+        style: "cancel",
+      },
+      {
+        text: "Keluar",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            setLoggingOut(true);
+            await logout();
+          } catch (err) {
+            console.error("Logout error:", err);
+            Alert.alert("Error", "Gagal logout. Silakan coba lagi.");
+          } finally {
+            setLoggingOut(false);
+          }
+        },
+      },
+    ]);
   }
 
   if (loading) {
@@ -132,11 +158,12 @@ export default function ProfilScreen() {
 
         {/* Logout Button */}
         <Button
-          title="Keluar"
-          onPress={logout}
+          title={loggingOut ? "Keluar..." : "Keluar"}
+          onPress={handleLogout}
           variant="danger"
           size="large"
           style={styles.logoutBtn}
+          disabled={loggingOut}
         />
       </ScrollView>
     </Container>

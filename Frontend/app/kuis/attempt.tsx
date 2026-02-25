@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,549 +6,460 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Modal,
-  AppState,
+  ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
-import { api } from "../lib/api";
-import { Loading } from "../components/ui/loading";
-import { Card } from "../components/ui/card";
+import { Container } from "../components/layout/container";
 import { Colors } from "../constants/config";
-import type { QuizAttempt } from "../types";
+import { api } from "../lib/api";
+
+interface Question {
+  id: string;
+  prompt: string;
+  options: string[];
+  hint?: string;
+}
 
 export default function AttemptScreen() {
-  const { slug, level } = useLocalSearchParams<{
-    slug: string;
-    level: string;
-  }>();
-  const [attempt, setAttempt] = useState<QuizAttempt | null>(null);
-  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const params = useLocalSearchParams();
+
+  // ✅ Ambil semua data dari params (sudah dikirim dari select-level)
+  const attemptId = params.attemptId as string;
+  const topicId = params.topicId as string;
+  const topicSlug = params.topicSlug as string;
+  const level = parseInt(params.level as string);
+  const timeLimit = parseInt(params.timeLimit as string) || 0;
+  const questions: Question[] = JSON.parse(params.questions as string);
+
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [selectedAnswers, setSelectedAnswers] = useState<{
+    [key: string]: number;
+  }>({});
   const [showHint, setShowHint] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(false);
-  const appState = useRef(AppState.currentState);
+  const [timeLeft, setTimeLeft] = useState(timeLimit);
+  const [submitting, setSubmitting] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const currentQuestion = questions[currentIndex];
+  const isLastQuestion = currentIndex === questions.length - 1;
+  const hasAnswered = selectedAnswers[currentQuestion?.id] !== undefined;
+
+  // ✅ Timer - hanya jika ada time limit
   useEffect(() => {
-    startQuiz();
-  }, []);
-
-  // Timer dengan background support
-  useEffect(() => {
-    if (!attempt?.time_limit_seconds) return;
-    setTimeLeft(attempt.time_limit_seconds);
-
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev === null || prev <= 1) {
-          clearInterval(timer);
-          handleSubmit(true); // auto-submit
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    const subscription = AppState.addEventListener("change", (nextAppState) => {
-      if (appState.current.match(/active/) && nextAppState === "background") {
-        // Timer tetap jalan
-      }
-      appState.current = nextAppState;
-    });
+    if (timeLimit > 0) {
+      timerRef.current = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            clearInterval(timerRef.current!);
+            handleSubmit();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
 
     return () => {
-      clearInterval(timer);
-      subscription.remove();
+      if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [attempt]);
+  }, []);
 
-  async function startQuiz() {
-    try {
-      const res = await api.post("/quiz/start", {
-        topic_slug: slug,
-        level: parseInt(level!),
-      });
-      setAttempt(res.data.data);
-    } catch (err: any) {
-      const errorMessage = err.message || "Gagal memulai kuis";
+  function formatTime(seconds: number): string {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  }
 
-      if (
-        errorMessage.includes("terkunci") ||
-        errorMessage.includes("Level") ||
-        errorMessage.includes("locked")
-      ) {
-        Alert.alert(
-          "🔒 Level Terkunci",
-          errorMessage +
-            "\n\nKembali dan coba level sebelumnya terlebih dahulu.",
-          [
-            {
-              text: "Kembali",
-              style: "default",
-              onPress: () => router.back(),
-            },
-          ],
-        );
-      } else {
-        Alert.alert("❌ Gagal Memulai Kuis", errorMessage, [
-          {
-            text: "Kembali",
-            style: "default",
-            onPress: () => router.back(),
-          },
-        ]);
-      }
-    } finally {
-      setLoading(false);
+  function handleSelectAnswer(optionIndex: number) {
+    setSelectedAnswers((prev) => ({
+      ...prev,
+      [currentQuestion.id]: optionIndex,
+    }));
+    setShowHint(false);
+  }
+
+  function handleNext() {
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex((prev) => prev + 1);
+      setShowHint(false);
     }
   }
 
-  function handleExit() {
-    Alert.alert(
-      "Keluar dari Kuis?",
-      "Progres kamu akan hilang. Yakin ingin keluar?",
-      [
-        { text: "Batal", style: "cancel" },
-        {
-          text: "Keluar",
-          style: "destructive",
-          onPress: () => router.back(),
-        },
-      ],
-    );
+  function handlePrev() {
+    if (currentIndex > 0) {
+      setCurrentIndex((prev) => prev - 1);
+      setShowHint(false);
+    }
   }
 
-  async function handleSubmit(expired = false) {
-    const unanswered = attempt!.questions.filter((q) => !(q.id in answers));
+  async function handleSubmit() {
+    if (submitting) return;
 
-    if (!expired && unanswered.length > 0) {
-      return Alert.alert(
-        "Ada soal yang belum dijawab",
-        `${unanswered.length} soal belum dijawab. Lanjutkan submit?`,
+    const unanswered = questions.filter(
+      (q) => selectedAnswers[q.id] === undefined,
+    );
+
+    if (unanswered.length > 0) {
+      Alert.alert(
+        "Belum Selesai",
+        `Masih ada ${unanswered.length} soal yang belum dijawab. Yakin ingin submit?`,
         [
-          { text: "Batal", style: "cancel" },
+          { text: "Lanjut Mengerjakan", style: "cancel" },
           { text: "Submit", onPress: () => doSubmit() },
         ],
       );
+      return;
     }
 
-    doSubmit();
+    await doSubmit();
   }
 
   async function doSubmit() {
-    setSubmitting(true);
-    setShowSidebar(false);
+    if (submitting) return;
+
     try {
-      const payload = attempt!.questions.map((q) => ({
+      setSubmitting(true);
+      if (timerRef.current) clearInterval(timerRef.current);
+
+      const answers = questions.map((q) => ({
         question_id: q.id,
-        selected_index: answers[q.id] ?? 0,
+        selected_index: selectedAnswers[q.id] ?? 0,
       }));
 
       const res = await api.post("/quiz/submit", {
-        attempt_id: attempt!.attempt_id,
-        topic_id: attempt!.topic_id,
-        level: attempt!.level,
-        answers: payload,
+        attempt_id: attemptId,
+        topic_id: topicId,
+        level,
+        answers,
       });
 
-      const resultData = JSON.stringify(res.data.data);
+      const result = res.data.data;
+
       router.replace({
         pathname: "/kuis/result",
         params: {
-          resultData,
-          slug,
-          level,
+          result: JSON.stringify(result),
+          topicSlug,
+          level: level.toString(),
         },
       });
     } catch (err: any) {
-      Alert.alert("Error", err.message);
-    } finally {
+      console.error("Submit error:", err);
+      Alert.alert("Error", "Gagal submit kuis. Coba lagi.");
       setSubmitting(false);
     }
   }
 
-  if (loading) return <Loading />;
-  if (!attempt) return <Text>Gagal memuat kuis</Text>;
-
-  const currentQuestion = attempt.questions[currentIndex];
-  const canGoPrev = currentIndex > 0;
-  const canGoNext = currentIndex < attempt.questions.length - 1;
-  const hasHint =
-    currentQuestion.hint && (parseInt(level!) === 1 || parseInt(level!) === 2);
-
-  const formatTime = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${m}:${s.toString().padStart(2, "0")}`;
-  };
-
-  const getTimeColor = () => {
-    if (!timeLeft) return Colors.text;
-    if (timeLeft < 60) return Colors.danger; // < 1 menit merah
-    if (timeLeft < 300) return Colors.warning; // < 5 menit kuning
-    return Colors.secondary;
-  };
+  if (!questions || questions.length === 0) {
+    return (
+      <Container>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      </Container>
+    );
+  }
 
   return (
-    <View style={styles.container}>
+    <Container>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleExit} style={styles.exitBtn}>
-          <Text style={styles.exitText}>✕ Keluar</Text>
-        </TouchableOpacity>
-
-        <View style={styles.headerCenter}>
+        <View style={styles.headerLeft}>
           <Text style={styles.levelText}>Level {level}</Text>
-          {timeLeft !== null && (
-            <Text style={[styles.timer, { color: getTimeColor() }]}>
-              {formatTime(timeLeft)}
-            </Text>
-          )}
+          <Text style={styles.progressText}>
+            {currentIndex + 1}/{questions.length}
+          </Text>
         </View>
-
-        <TouchableOpacity
-          onPress={() => setShowSidebar(true)}
-          style={styles.sidebarBtn}
-        >
-          <Text style={styles.sidebarText}>☰</Text>
-        </TouchableOpacity>
+        {timeLimit > 0 && (
+          <View
+            style={[styles.timerBox, timeLeft < 60 && styles.timerBoxDanger]}
+          >
+            <Text
+              style={[
+                styles.timerText,
+                timeLeft < 60 && styles.timerTextDanger,
+              ]}
+            >
+              ⏱ {formatTime(timeLeft)}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Progress Bar */}
-      <View style={styles.progressContainer}>
+      <View style={styles.progressBar}>
         <View
           style={[
-            styles.progressBar,
+            styles.progressFill,
             {
-              width: `${((currentIndex + 1) / attempt.questions.length) * 100}%`,
+              width: `${((currentIndex + 1) / questions.length) * 100}%`,
             },
           ]}
         />
       </View>
-      <Text style={styles.progressText}>
-        Soal {currentIndex + 1} dari {attempt.questions.length}
-      </Text>
 
-      {/* Question Card */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <Card style={styles.questionCard}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Question */}
+        <View style={styles.questionCard}>
           <Text style={styles.questionNumber}>Soal {currentIndex + 1}</Text>
           <Text style={styles.questionText}>{currentQuestion.prompt}</Text>
 
-          {hasHint && (
+          {/* Hint */}
+          {currentQuestion.hint && (
             <TouchableOpacity
-              onPress={() => setShowHint(true)}
-              style={styles.hintBtn}
+              onPress={() => setShowHint(!showHint)}
+              style={styles.hintButton}
             >
-              <Text style={styles.hintBtnText}>💡 Lihat Hint</Text>
+              <Text style={styles.hintButtonText}>
+                {showHint ? "🙈 Sembunyikan Hint" : "💡 Tampilkan Hint"}
+              </Text>
             </TouchableOpacity>
           )}
 
-          <View style={styles.optionsContainer}>
-            {currentQuestion.options.map((opt, idx) => {
-              const isSelected = answers[currentQuestion.id] === idx;
-              return (
-                <TouchableOpacity
-                  key={idx}
-                  onPress={() =>
-                    setAnswers({ ...answers, [currentQuestion.id]: idx })
-                  }
-                  style={[styles.option, isSelected && styles.optionSelected]}
+          {showHint && currentQuestion.hint && (
+            <View style={styles.hintBox}>
+              <Text style={styles.hintText}>{currentQuestion.hint}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Options */}
+        <View style={styles.optionsContainer}>
+          {currentQuestion.options.map((option, index) => {
+            const isSelected = selectedAnswers[currentQuestion.id] === index;
+            return (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.optionButton,
+                  isSelected && styles.selectedOption,
+                ]}
+                onPress={() => handleSelectAnswer(index)}
+                activeOpacity={0.7}
+              >
+                <View
+                  style={[
+                    styles.optionLabel,
+                    isSelected && styles.selectedLabel,
+                  ]}
                 >
-                  <View style={styles.optionCircle}>
-                    {isSelected && <View style={styles.optionCircleInner} />}
-                  </View>
                   <Text
                     style={[
-                      styles.optionText,
-                      isSelected && styles.optionTextSelected,
+                      styles.optionLabelText,
+                      isSelected && styles.selectedLabelText,
                     ]}
                   >
-                    {opt}
+                    {String.fromCharCode(65 + index)}
                   </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </Card>
-      </ScrollView>
-
-      {/* Navigation Buttons */}
-      <View style={styles.navigationContainer}>
-        <View style={styles.navButtons}>
-          <TouchableOpacity
-            onPress={() => setCurrentIndex(currentIndex - 1)}
-            disabled={!canGoPrev}
-            style={[styles.navBtn, !canGoPrev && styles.navBtnDisabled]}
-          >
-            <Text
-              style={[
-                styles.navBtnText,
-                !canGoPrev && styles.navBtnTextDisabled,
-              ]}
-            >
-              ← Sebelumnya
-            </Text>
-          </TouchableOpacity>
-
-          {canGoNext ? (
-            <TouchableOpacity
-              onPress={() => setCurrentIndex(currentIndex + 1)}
-              style={[styles.navBtn, styles.navBtnPrimary]}
-            >
-              <Text style={[styles.navBtnText, styles.navBtnTextPrimary]}>
-                Selanjutnya →
-              </Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              onPress={() => handleSubmit(false)}
-              disabled={submitting}
-              style={[styles.navBtn, styles.navBtnSuccess]}
-            >
-              <Text style={[styles.navBtnText, styles.navBtnTextPrimary]}>
-                {submitting ? "Menyimpan..." : "Submit ✓"}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      {/* Hint Modal */}
-      <Modal
-        visible={showHint}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowHint(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>💡 Hint</Text>
-            <Text style={styles.modalText}>{currentQuestion.hint}</Text>
-            <TouchableOpacity
-              onPress={() => setShowHint(false)}
-              style={styles.modalBtn}
-            >
-              <Text style={styles.modalBtnText}>Mengerti</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Sidebar Modal */}
-      <Modal
-        visible={showSidebar}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowSidebar(false)}
-      >
-        <View style={styles.sidebarOverlay}>
-          <View style={styles.sidebarContent}>
-            <View style={styles.sidebarHeader}>
-              <Text style={styles.sidebarTitle}>Daftar Soal</Text>
-              <TouchableOpacity onPress={() => setShowSidebar(false)}>
-                <Text style={styles.sidebarClose}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              style={styles.sidebarScroll}
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.sidebarGrid}>
-                {attempt.questions.map((q, idx) => {
-                  const isAnswered = q.id in answers;
-                  const isCurrent = idx === currentIndex;
-                  return (
-                    <TouchableOpacity
-                      key={q.id}
-                      onPress={() => {
-                        setCurrentIndex(idx);
-                        setShowSidebar(false);
-                      }}
-                      style={[
-                        styles.sidebarItem,
-                        isCurrent && styles.sidebarItemCurrent,
-                        isAnswered && !isCurrent && styles.sidebarItemAnswered,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.sidebarItemText,
-                          isCurrent && styles.sidebarItemTextActive,
-                        ]}
-                      >
-                        {idx + 1}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </ScrollView>
-
-            {/* Submit button di sidebar */}
-            <View style={styles.sidebarFooter}>
-              <TouchableOpacity
-                onPress={() => handleSubmit(false)}
-                disabled={submitting}
-                style={styles.sidebarSubmitBtn}
-              >
-                <Text style={styles.sidebarSubmitText}>
-                  {submitting ? "Menyimpan..." : "✓ Submit Kuis"}
+                </View>
+                <Text
+                  style={[styles.optionText, isSelected && styles.selectedText]}
+                >
+                  {option}
                 </Text>
               </TouchableOpacity>
-            </View>
-          </View>
+            );
+          })}
         </View>
-      </Modal>
-    </View>
+      </ScrollView>
+
+      {/* Navigation */}
+      <View style={styles.navigation}>
+        <TouchableOpacity
+          style={[
+            styles.navButton,
+            currentIndex === 0 && styles.navButtonDisabled,
+          ]}
+          onPress={handlePrev}
+          disabled={currentIndex === 0}
+        >
+          <Text style={styles.navButtonText}>← Prev</Text>
+        </TouchableOpacity>
+
+        {isLastQuestion ? (
+          <TouchableOpacity
+            style={[
+              styles.submitButton,
+              submitting && styles.submitButtonDisabled,
+            ]}
+            onPress={handleSubmit}
+            disabled={submitting}
+          >
+            <Text style={styles.submitButtonText}>
+              {submitting ? "Submitting..." : "Submit ✓"}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.navButton, !hasAnswered && styles.navButtonDisabled]}
+            onPress={handleNext}
+          >
+            <Text style={styles.navButtonText}>Next →</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </Container>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  loadingContainer: {
     flex: 1,
-    backgroundColor: Colors.background,
-    paddingTop: 40, // Safe area untuk kamera
+    justifyContent: "center",
+    alignItems: "center",
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: Colors.card,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: Colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderLight,
-    marginHorizontal: 8,
-    marginTop: 8,
-    borderRadius: 16,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  exitBtn: {
-    padding: 8,
-    backgroundColor: Colors.lightPink,
-    borderRadius: 10,
-  },
-  exitText: {
-    fontSize: 14,
-    color: Colors.danger,
-    fontFamily: "Galano-SemiBold",
-  },
-  headerCenter: {
-    alignItems: "center",
+  headerLeft: {
+    gap: 4,
   },
   levelText: {
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: "Galano-Bold",
     color: Colors.text,
   },
-  timer: {
-    fontSize: 18,
+  progressText: {
+    fontSize: 14,
+    fontFamily: "Galano",
+    color: Colors.textSecondary,
+  },
+  timerBox: {
+    backgroundColor: Colors.infoLight,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  timerBoxDanger: {
+    backgroundColor: Colors.dangerLight,
+  },
+  timerText: {
+    fontSize: 16,
     fontFamily: "Galano-Bold",
-    marginTop: 4,
+    color: Colors.info,
   },
-  sidebarBtn: {
-    padding: 8,
-    backgroundColor: Colors.peach,
-    borderRadius: 10,
-  },
-  sidebarText: {
-    fontSize: 20,
-    color: Colors.primary,
-  },
-  progressContainer: {
-    height: 6,
-    backgroundColor: Colors.borderLight,
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 3,
-    overflow: "hidden",
+  timerTextDanger: {
+    color: Colors.danger,
   },
   progressBar: {
+    height: 6,
+    backgroundColor: Colors.borderLight,
+  },
+  progressFill: {
     height: "100%",
     backgroundColor: Colors.primary,
-  },
-  progressText: {
-    textAlign: "center",
-    fontSize: 14,
-    fontFamily: "Galano-Medium",
-    color: Colors.textSecondary,
-    paddingVertical: 8,
+    borderRadius: 3,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 16,
+  },
+  contentContainer: {
+    padding: 20,
+    paddingBottom: 40,
   },
   questionCard: {
-    backgroundColor: Colors.card,
-    marginVertical: 8,
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 20,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
   questionNumber: {
     fontSize: 14,
     fontFamily: "Galano-SemiBold",
     color: Colors.primary,
-    marginBottom: 8,
+    marginBottom: 12,
+    textTransform: "uppercase",
+    letterSpacing: 1,
   },
   questionText: {
     fontSize: 18,
-    fontFamily: "Galano-Medium",
+    fontFamily: "Galano-SemiBold",
     color: Colors.text,
-    lineHeight: 26,
+    lineHeight: 28,
     marginBottom: 16,
   },
-  hintBtn: {
-    alignSelf: "flex-start",
-    backgroundColor: Colors.softYellow,
+  hintButton: {
+    backgroundColor: Colors.infoLight,
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: Colors.warning,
+    paddingVertical: 8,
+    borderRadius: 12,
+    alignSelf: "flex-start",
   },
-  hintBtnText: {
+  hintButtonText: {
     fontSize: 14,
     fontFamily: "Galano-SemiBold",
-    color: Colors.warning,
+    color: Colors.info,
+  },
+  hintBox: {
+    marginTop: 12,
+    backgroundColor: Colors.warningLight || "#FFF9C4",
+    borderRadius: 12,
+    padding: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.warning,
+  },
+  hintText: {
+    fontSize: 14,
+    fontFamily: "Galano",
+    color: Colors.text,
+    lineHeight: 20,
   },
   optionsContainer: {
     gap: 12,
   },
-  option: {
+  optionButton: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
     padding: 16,
     borderWidth: 2,
     borderColor: Colors.borderLight,
-    borderRadius: 16,
-    backgroundColor: Colors.card,
+    gap: 16,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  optionSelected: {
+  selectedOption: {
     borderColor: Colors.primary,
-    backgroundColor: Colors.lightPink + "40",
+    backgroundColor: Colors.primaryLight,
   },
-  optionCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: Colors.border,
-    marginRight: 12,
+  optionLabel: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.borderLight,
     justifyContent: "center",
     alignItems: "center",
   },
-  optionCircleInner: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+  selectedLabel: {
     backgroundColor: Colors.primary,
+  },
+  optionLabelText: {
+    fontSize: 14,
+    fontFamily: "Galano-Bold",
+    color: Colors.textSecondary,
+  },
+  selectedLabelText: {
+    color: Colors.surface,
   },
   optionText: {
     flex: 1,
@@ -557,197 +468,48 @@ const styles = StyleSheet.create({
     color: Colors.text,
     lineHeight: 22,
   },
-  optionTextSelected: {
+  selectedText: {
     fontFamily: "Galano-SemiBold",
     color: Colors.primary,
   },
-  navigationContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: Colors.card,
-    borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
-    marginHorizontal: 8,
-    marginBottom: 8,
-    borderRadius: 16,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  navButtons: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  navBtn: {
-    flex: 1,
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: Colors.border,
-    alignItems: "center",
-    backgroundColor: Colors.card,
-  },
-  navBtnDisabled: {
-    opacity: 0.3,
-  },
-  navBtnPrimary: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  navBtnSuccess: {
-    backgroundColor: Colors.success,
-    borderColor: Colors.success,
-  },
-  navBtnText: {
-    fontSize: 16,
-    fontFamily: "Galano-SemiBold",
-    color: Colors.text,
-  },
-  navBtnTextDisabled: {
-    color: Colors.textSecondary,
-  },
-  navBtnTextPrimary: {
-    color: Colors.card,
-    fontFamily: "Galano-Bold",
-  },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: Colors.card,
-    borderRadius: 20,
-    padding: 24,
-    width: "100%",
-    maxWidth: 400,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontFamily: "Galano-Bold",
-    color: Colors.text,
-    marginBottom: 16,
-    textAlign: "center",
-  },
-  modalText: {
-    fontSize: 16,
-    fontFamily: "Galano",
-    color: Colors.text,
-    lineHeight: 24,
-    marginBottom: 20,
-  },
-  modalBtn: {
-    backgroundColor: Colors.primary,
-    padding: 14,
-    borderRadius: 16,
-    alignItems: "center",
-  },
-  modalBtnText: {
-    fontSize: 16,
-    fontFamily: "Galano-Bold",
-    color: Colors.card,
-  },
-  // Sidebar styles
-  sidebarOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
-    justifyContent: "flex-end",
-  },
-  sidebarContent: {
-    backgroundColor: Colors.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: "75%",
-  },
-  sidebarHeader: {
+  navigation: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
-  },
-  sidebarTitle: {
-    fontSize: 20,
-    fontFamily: "Galano-Bold",
-    color: Colors.text,
-  },
-  sidebarClose: {
-    fontSize: 24,
-    color: Colors.textSecondary,
-    padding: 4,
-  },
-  sidebarScroll: {
     paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-  sidebarGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+    paddingVertical: 16,
+    backgroundColor: Colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
     gap: 12,
-    paddingBottom: 20,
   },
-  sidebarItem: {
-    width: 56,
-    height: 56,
+  navButton: {
+    flex: 1,
+    paddingVertical: 14,
     borderRadius: 16,
-    borderWidth: 2,
-    borderColor: Colors.border,
-    backgroundColor: Colors.card,
-    justifyContent: "center",
+    backgroundColor: Colors.borderLight,
     alignItems: "center",
   },
-  sidebarItemCurrent: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primary,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
+  navButtonDisabled: {
+    opacity: 0.4,
   },
-  sidebarItemAnswered: {
-    borderColor: Colors.success,
-    backgroundColor: Colors.successLight,
-  },
-  sidebarItemText: {
-    fontSize: 18,
+  navButtonText: {
+    fontSize: 16,
     fontFamily: "Galano-SemiBold",
     color: Colors.text,
   },
-  sidebarItemTextActive: {
-    color: Colors.card,
-  },
-  sidebarFooter: {
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
-    backgroundColor: Colors.background,
-  },
-  sidebarSubmitBtn: {
-    backgroundColor: Colors.success,
-    padding: 16,
+  submitButton: {
+    flex: 2,
+    paddingVertical: 14,
     borderRadius: 16,
+    backgroundColor: Colors.primary,
     alignItems: "center",
-    shadowColor: Colors.success,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
   },
-  sidebarSubmitText: {
-    fontSize: 17,
+  submitButtonDisabled: {
+    opacity: 0.6,
+  },
+  submitButtonText: {
+    fontSize: 16,
     fontFamily: "Galano-Bold",
-    color: Colors.card,
+    color: Colors.surface,
   },
 });

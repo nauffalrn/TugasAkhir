@@ -12,38 +12,35 @@ import { Colors } from "../../constants/config";
 interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: "primary" | "secondary" | "success" | "danger" | "outline";
+  variant?: "primary" | "secondary" | "danger";
+  size?: "small" | "medium" | "large";
   disabled?: boolean;
   loading?: boolean;
   style?: ViewStyle;
-  textStyle?: TextStyle;
-  size?: "small" | "medium" | "large";
 }
 
 export function Button({
   title,
   onPress,
   variant = "primary",
+  size = "medium",
   disabled = false,
   loading = false,
   style,
-  textStyle,
-  size = "medium",
 }: ButtonProps) {
-  const buttonStyles = [
+  const buttonStyles: ViewStyle[] = [
     styles.button,
-    styles[`button_${variant}`],
-    styles[`button_${size}`],
-    disabled && styles.buttonDisabled,
-    style,
+    styles[`${variant}Button` as keyof typeof styles] as ViewStyle,
+    styles[`${size}Button` as keyof typeof styles] as ViewStyle,
+    disabled ? styles.disabledButton : {},
+    style ?? {},
   ];
 
-  const textStyles = [
+  const textStyles: TextStyle[] = [
     styles.text,
-    styles[`text_${variant}`],
-    styles[`text_${size}`],
-    disabled && styles.textDisabled,
-    textStyle,
+    styles[`${variant}Text` as keyof typeof styles] as TextStyle,
+    styles[`${size}Text` as keyof typeof styles] as TextStyle,
+    disabled ? styles.disabledText : {},
   ];
 
   return (
@@ -51,11 +48,11 @@ export function Button({
       style={buttonStyles}
       onPress={onPress}
       disabled={disabled || loading}
-      activeOpacity={0.7}
+      activeOpacity={0.8}
     >
       {loading ? (
         <ActivityIndicator
-          color={variant === "outline" ? Colors.primary : "#FFFFFF"}
+          color={variant === "secondary" ? Colors.primary : Colors.surface}
         />
       ) : (
         <Text style={textStyles}>{title}</Text>
@@ -66,78 +63,59 @@ export function Button({
 
 const styles = StyleSheet.create({
   button: {
-    borderRadius: 16,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
+    flexDirection: "row",
   },
-  button_small: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-  },
-  button_medium: {
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-  },
-  button_large: {
-    paddingVertical: 18,
-    paddingHorizontal: 32,
-  },
-  button_primary: {
+  primaryButton: {
     backgroundColor: Colors.primary,
   },
-  button_secondary: {
-    backgroundColor: Colors.secondary,
-  },
-  button_success: {
-    backgroundColor: Colors.success,
-  },
-  button_danger: {
-    backgroundColor: Colors.danger,
-  },
-  button_outline: {
-    backgroundColor: "transparent",
+  secondaryButton: {
+    backgroundColor: Colors.surface,
     borderWidth: 2,
     borderColor: Colors.primary,
   },
-  buttonDisabled: {
-    backgroundColor: Colors.borderLight,
-    shadowOpacity: 0,
-    elevation: 0,
+  dangerButton: {
+    backgroundColor: Colors.danger,
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  smallButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  mediumButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  largeButton: {
+    paddingVertical: 16,
+    paddingHorizontal: 32,
   },
   text: {
     fontFamily: "Galano-Bold",
-    fontWeight: "700",
   },
-  text_small: {
-    fontSize: 14,
+  primaryText: {
+    color: Colors.surface,
   },
-  text_medium: {
-    fontSize: 16,
-  },
-  text_large: {
-    fontSize: 18,
-  },
-  text_primary: {
-    color: "#FFFFFF",
-  },
-  text_secondary: {
-    color: "#2D3748",
-  },
-  text_success: {
-    color: "#FFFFFF",
-  },
-  text_danger: {
-    color: "#FFFFFF",
-  },
-  text_outline: {
+  secondaryText: {
     color: Colors.primary,
   },
-  textDisabled: {
-    color: Colors.textLight,
+  dangerText: {
+    color: Colors.surface,
+  },
+  disabledText: {
+    opacity: 0.7,
+  },
+  smallText: {
+    fontSize: 14,
+  },
+  mediumText: {
+    fontSize: 16,
+  },
+  largeText: {
+    fontSize: 18,
   },
 });

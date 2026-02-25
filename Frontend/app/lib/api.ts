@@ -1,17 +1,17 @@
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import { API_URL } from "../constants/config";
-import { getToken } from "./storage";
+import { storage } from "./storage";
 
-console.log("🔧 API Configuration:");
-console.log("  - Base URL:", API_URL);
-
+// Create axios instance
 export const api = axios.create({
   baseURL: API_URL,
-  headers: { "Content-Type": "application/json" },
-  timeout: 10000, // 10 detik timeout
+  headers: {
+    "Content-Type": "application/json",
+  },
+  timeout: 10000,
 });
 
-// Auto-attach token
+// Request interceptor - attach token
 api.interceptors.request.use(
   async (config) => {
     console.log("📤 API Request:", {
@@ -21,10 +21,13 @@ api.interceptors.request.use(
       fullURL: `${config.baseURL}${config.url}`,
     });
 
-    const token = await getToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-      console.log("  - Token attached:", token.substring(0, 20) + "...");
+    try {
+      const token = await storage.getToken();
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } catch (error) {
+      console.error("❌ Error getting token:", error);
     }
 
     return config;
@@ -35,7 +38,7 @@ api.interceptors.request.use(
   },
 );
 
-// Handle errors
+// Response interceptor - handle errors
 api.interceptors.response.use(
   (response) => {
     console.log("✅ API Response:", {
@@ -45,20 +48,25 @@ api.interceptors.response.use(
     });
     return response;
   },
-  (error) => {
-    console.error("❌ API Error:", {
+  async (error: AxiosError) => {
+    const errorData = {
       message: error.message,
-      code: error.code,
-      url: error.config?.url,
       status: error.response?.status,
       data: error.response?.data,
+      url: error.config?.url,
+      code: (error.response?.data as any)?.code,
       isNetworkError: !error.response,
-    });
+    };
 
-    const message =
-      error.response?.data?.error?.message ||
-      error.message ||
-      "Terjadi kesalahan";
-    return Promise.reject(new Error(message));
+    console.error("❌ API Error:", errorData);
+
+    // Auto logout jika unauthorized (401)
+    if (error.response?.status === 401) {
+      console.log("🔓 Unauthorized - removing token");
+      await storage.removeToken();
+      // Note: Navigation akan ditangani oleh useAuth hook
+    }
+
+    return Promise.reject(error);
   },
 );

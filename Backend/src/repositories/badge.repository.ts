@@ -1,22 +1,19 @@
 import { supabase } from "../lib/supabase";
 
-export async function findAllBadgesByUser(userId: string) {
-  return supabase
-    .from("user_badges")
-    .select("*")
-    .eq("user_id", userId)
-    .order("earned_at", { ascending: false });
-}
-
-export async function findBadgeDef(topicId: string, level: number) {
+export async function checkBadgeExists(
+  userId: string,
+  topicId: string,
+  level: number,
+): Promise<boolean> {
   const { data } = await supabase
-    .from("badge_defs")
-    .select("*")
+    .from("user_badges")
+    .select("id")
+    .eq("user_id", userId)
     .eq("topic_id", topicId)
     .eq("level", level)
-    .single();
+    .maybeSingle();
 
-  return data;
+  return !!data;
 }
 
 export async function awardBadge(
@@ -37,18 +34,43 @@ export async function awardBadge(
   return { data, error };
 }
 
-export async function checkBadgeExists(
-  userId: string,
-  topicId: string,
-  level: number,
-) {
-  const { data } = await supabase
+export async function findUserBadges(userId: string) {
+  const { data, error } = await supabase
     .from("user_badges")
-    .select("*")
+    .select(
+      `
+      *,
+      topics (
+        id,
+        title,
+        slug
+      )
+    `,
+    )
     .eq("user_id", userId)
-    .eq("topic_id", topicId)
-    .eq("level", level)
-    .maybeSingle();
+    .order("earned_at", { ascending: false });
 
-  return !!data;
+  if (error) throw error;
+
+  // Transform data untuk include badge metadata
+  return (data || []).map((badge: any) => ({
+    topic_id: badge.topic_id,
+    topic_title: badge.topics.title,
+    topic_slug: badge.topics.slug,
+    level: badge.level,
+    title: getBadgeTitle(badge.level),
+    icon_key: `${badge.topics.slug}-level-${badge.level}`,
+    earned_at: badge.earned_at,
+  }));
+}
+
+// Helper functions untuk badge metadata
+function getBadgeTitle(level: number): string {
+  const titles: { [key: number]: string } = {
+    1: "Pemula",
+    2: "Mahir",
+    3: "Expert",
+    4: "Master",
+  };
+  return titles[level] || "Badge";
 }
