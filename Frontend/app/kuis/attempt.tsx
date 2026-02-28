@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Modal,
+  FlatList,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { Container } from "../components/layout/container";
@@ -23,7 +25,6 @@ interface Question {
 export default function AttemptScreen() {
   const params = useLocalSearchParams();
 
-  // ✅ Ambil semua data dari params (sudah dikirim dari select-level)
   const attemptId = params.attemptId as string;
   const topicId = params.topicId as string;
   const topicSlug = params.topicSlug as string;
@@ -38,27 +39,26 @@ export default function AttemptScreen() {
   const [showHint, setShowHint] = useState(false);
   const [timeLeft, setTimeLeft] = useState(timeLimit);
   const [submitting, setSubmitting] = useState(false);
+  const [showNavigator, setShowNavigator] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const currentQuestion = questions[currentIndex];
   const isLastQuestion = currentIndex === questions.length - 1;
   const hasAnswered = selectedAnswers[currentQuestion?.id] !== undefined;
 
-  // ✅ Timer - hanya jika ada time limit
   useEffect(() => {
     if (timeLimit > 0) {
       timerRef.current = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
             clearInterval(timerRef.current!);
-            handleSubmit();
+            doSubmit();
             return 0;
           }
           return prev - 1;
         });
       }, 1000);
     }
-
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
@@ -92,6 +92,31 @@ export default function AttemptScreen() {
     }
   }
 
+  function handleGoToQuestion(index: number) {
+    setCurrentIndex(index);
+    setShowHint(false);
+    setShowNavigator(false);
+  }
+
+  // ✅ Tombol keluar - tidak submit ke DB
+  function handleExit() {
+    Alert.alert(
+      "Keluar Kuis",
+      "Yakin ingin keluar? Progress kuis tidak akan disimpan.",
+      [
+        { text: "Lanjut Mengerjakan", style: "cancel" },
+        {
+          text: "Keluar",
+          style: "destructive",
+          onPress: () => {
+            if (timerRef.current) clearInterval(timerRef.current);
+            router.back();
+          },
+        },
+      ],
+    );
+  }
+
   async function handleSubmit() {
     if (submitting) return;
 
@@ -121,14 +146,17 @@ export default function AttemptScreen() {
       setSubmitting(true);
       if (timerRef.current) clearInterval(timerRef.current);
 
+      // ✅ Jawaban kosong tetap null/tidak diisi
       const answers = questions.map((q) => ({
         question_id: q.id,
-        selected_index: selectedAnswers[q.id] ?? 0,
+        selected_index:
+          selectedAnswers[q.id] !== undefined ? selectedAnswers[q.id] : -1,
       }));
 
       const res = await api.post("/quiz/submit", {
         attempt_id: attemptId,
         topic_id: topicId,
+        topic_slug: topicSlug,
         level,
         answers,
       });
@@ -164,26 +192,41 @@ export default function AttemptScreen() {
     <Container>
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
+        {/* ✅ Tombol Keluar */}
+        <TouchableOpacity onPress={handleExit} style={styles.exitButton}>
+          <Text style={styles.exitText}>✕</Text>
+        </TouchableOpacity>
+
+        <View style={styles.headerCenter}>
           <Text style={styles.levelText}>Level {level}</Text>
           <Text style={styles.progressText}>
             {currentIndex + 1}/{questions.length}
           </Text>
         </View>
-        {timeLimit > 0 && (
-          <View
-            style={[styles.timerBox, timeLeft < 60 && styles.timerBoxDanger]}
-          >
-            <Text
-              style={[
-                styles.timerText,
-                timeLeft < 60 && styles.timerTextDanger,
-              ]}
+
+        <View style={styles.headerRight}>
+          {timeLimit > 0 && (
+            <View
+              style={[styles.timerBox, timeLeft < 60 && styles.timerBoxDanger]}
             >
-              ⏱ {formatTime(timeLeft)}
-            </Text>
-          </View>
-        )}
+              <Text
+                style={[
+                  styles.timerText,
+                  timeLeft < 60 && styles.timerTextDanger,
+                ]}
+              >
+                ⏱ {formatTime(timeLeft)}
+              </Text>
+            </View>
+          )}
+          {/* ✅ Tombol Navigator */}
+          <TouchableOpacity
+            onPress={() => setShowNavigator(true)}
+            style={styles.navigatorButton}
+          >
+            <Text style={styles.navigatorButtonText}>☰</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Progress Bar */}
@@ -191,9 +234,7 @@ export default function AttemptScreen() {
         <View
           style={[
             styles.progressFill,
-            {
-              width: `${((currentIndex + 1) / questions.length) * 100}%`,
-            },
+            { width: `${((currentIndex + 1) / questions.length) * 100}%` },
           ]}
         />
       </View>
@@ -208,8 +249,8 @@ export default function AttemptScreen() {
           <Text style={styles.questionNumber}>Soal {currentIndex + 1}</Text>
           <Text style={styles.questionText}>{currentQuestion.prompt}</Text>
 
-          {/* Hint */}
-          {currentQuestion.hint && (
+          {/* Hint - hanya level 1 dan 2 */}
+          {currentQuestion.hint && (level === 1 || level === 2) && (
             <TouchableOpacity
               onPress={() => setShowHint(!showHint)}
               style={styles.hintButton}
@@ -269,15 +310,16 @@ export default function AttemptScreen() {
 
       {/* Navigation */}
       <View style={styles.navigation}>
+        {/* ✅ Prev dengan warna */}
         <TouchableOpacity
           style={[
-            styles.navButton,
+            styles.prevButton,
             currentIndex === 0 && styles.navButtonDisabled,
           ]}
           onPress={handlePrev}
           disabled={currentIndex === 0}
         >
-          <Text style={styles.navButtonText}>← Prev</Text>
+          <Text style={styles.prevButtonText}>← Prev</Text>
         </TouchableOpacity>
 
         {isLastQuestion ? (
@@ -294,14 +336,83 @@ export default function AttemptScreen() {
             </Text>
           </TouchableOpacity>
         ) : (
+          // ✅ Next dengan warna
           <TouchableOpacity
-            style={[styles.navButton, !hasAnswered && styles.navButtonDisabled]}
+            style={[
+              styles.nextButton,
+              !hasAnswered && styles.nextButtonUnanswered,
+            ]}
             onPress={handleNext}
           >
-            <Text style={styles.navButtonText}>Next →</Text>
+            <Text style={styles.nextButtonText}>Next →</Text>
           </TouchableOpacity>
         )}
       </View>
+
+      {/* ✅ Navigator Modal */}
+      <Modal
+        visible={showNavigator}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowNavigator(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Navigasi Soal</Text>
+              <TouchableOpacity onPress={() => setShowNavigator(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Legend */}
+            <View style={styles.legend}>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, styles.legendAnswered]} />
+                <Text style={styles.legendText}>Sudah dijawab</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, styles.legendUnanswered]} />
+                <Text style={styles.legendText}>Belum dijawab</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, styles.legendCurrent]} />
+                <Text style={styles.legendText}>Soal saat ini</Text>
+              </View>
+            </View>
+
+            <FlatList
+              data={questions}
+              numColumns={5}
+              keyExtractor={(_, i) => i.toString()}
+              renderItem={({ item, index }) => {
+                const isAnswered = selectedAnswers[item.id] !== undefined;
+                const isCurrent = index === currentIndex;
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.navDot,
+                      isAnswered && styles.navDotAnswered,
+                      isCurrent && styles.navDotCurrent,
+                    ]}
+                    onPress={() => handleGoToQuestion(index)}
+                  >
+                    <Text
+                      style={[
+                        styles.navDotText,
+                        (isAnswered || isCurrent) && styles.navDotTextActive,
+                      ]}
+                    >
+                      {index + 1}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }}
+              contentContainerStyle={styles.navGrid}
+            />
+          </View>
+        </View>
+      </Modal>
     </Container>
   );
 }
@@ -316,14 +427,29 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingTop: 50,
+    paddingVertical: 12,
     backgroundColor: Colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderLight,
   },
-  headerLeft: {
-    gap: 4,
+  exitButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.dangerLight,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  exitText: {
+    fontSize: 16,
+    fontFamily: "Galano-Bold",
+    color: Colors.danger,
+  },
+  headerCenter: {
+    alignItems: "center",
+    gap: 2,
   },
   levelText: {
     fontSize: 18,
@@ -335,22 +461,39 @@ const styles = StyleSheet.create({
     fontFamily: "Galano",
     color: Colors.textSecondary,
   },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   timerBox: {
     backgroundColor: Colors.infoLight,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 20,
   },
   timerBoxDanger: {
     backgroundColor: Colors.dangerLight,
   },
   timerText: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: "Galano-Bold",
     color: Colors.info,
   },
   timerTextDanger: {
     color: Colors.danger,
+  },
+  navigatorButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.primaryLight,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  navigatorButtonText: {
+    fontSize: 18,
+    color: Colors.primary,
   },
   progressBar: {
     height: 6,
@@ -482,20 +625,37 @@ const styles = StyleSheet.create({
     borderTopColor: Colors.borderLight,
     gap: 12,
   },
-  navButton: {
+  // ✅ Prev - warna abu/secondary
+  prevButton: {
     flex: 1,
     paddingVertical: 14,
     borderRadius: 16,
-    backgroundColor: Colors.borderLight,
+    backgroundColor: Colors.textSecondary,
     alignItems: "center",
+  },
+  prevButtonText: {
+    fontSize: 16,
+    fontFamily: "Galano-SemiBold",
+    color: Colors.surface,
+  },
+  // ✅ Next - warna primary jika sudah jawab, abu jika belum
+  nextButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 16,
+    backgroundColor: Colors.primary,
+    alignItems: "center",
+  },
+  nextButtonUnanswered: {
+    backgroundColor: Colors.borderLight,
+  },
+  nextButtonText: {
+    fontSize: 16,
+    fontFamily: "Galano-SemiBold",
+    color: Colors.surface,
   },
   navButtonDisabled: {
     opacity: 0.4,
-  },
-  navButtonText: {
-    fontSize: 16,
-    fontFamily: "Galano-SemiBold",
-    color: Colors.text,
   },
   submitButton: {
     flex: 2,
@@ -510,6 +670,96 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: 16,
     fontFamily: "Galano-Bold",
+    color: Colors.surface,
+  },
+  // ✅ Modal Navigator
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    maxHeight: "60%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontFamily: "Galano-Bold",
+    color: Colors.text,
+  },
+  modalClose: {
+    fontSize: 18,
+    color: Colors.textSecondary,
+  },
+  legend: {
+    flexDirection: "row",
+    gap: 16,
+    marginBottom: 16,
+    flexWrap: "wrap",
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  legendDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+  },
+  legendAnswered: {
+    backgroundColor: Colors.success,
+  },
+  legendUnanswered: {
+    backgroundColor: Colors.borderLight,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  legendCurrent: {
+    backgroundColor: Colors.primary,
+  },
+  legendText: {
+    fontSize: 13,
+    fontFamily: "Galano",
+    color: Colors.textSecondary,
+  },
+  navGrid: {
+    gap: 10,
+  },
+  navDot: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    backgroundColor: Colors.borderLight,
+    justifyContent: "center",
+    alignItems: "center",
+    margin: 4,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  navDotAnswered: {
+    backgroundColor: Colors.success,
+    borderColor: Colors.success,
+  },
+  navDotCurrent: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  navDotText: {
+    fontSize: 16,
+    fontFamily: "Galano-Bold",
+    color: Colors.textSecondary,
+  },
+  navDotTextActive: {
     color: Colors.surface,
   },
 });

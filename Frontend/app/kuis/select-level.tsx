@@ -6,13 +6,15 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  TouchableOpacity,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
-import { Container } from "../components/layout/container";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Colors } from "../constants/config";
 import { api } from "../lib/api";
+import { Ionicons } from "@expo/vector-icons";
+import { BottomNav } from "../components/layout/bottom-nav";
 
 interface Progress {
   topic_id: string;
@@ -60,8 +62,8 @@ export default function SelectLevelScreen() {
 
   const [progress, setProgress] = useState<Progress | null>(null);
   const [loading, setLoading] = useState(true);
-  const [startingQuiz, setStartingQuiz] = useState(false); // ✅ Tambahkan flag
-  const isRequestingRef = useRef(false); // ✅ Tambahkan ref untuk prevent double request
+  const [startingQuiz, setStartingQuiz] = useState(false);
+  const isRequestingRef = useRef(false);
 
   useEffect(() => {
     loadProgress();
@@ -72,11 +74,9 @@ export default function SelectLevelScreen() {
       setLoading(true);
       const res = await api.get("/profile/progress");
       const allProgress = res.data.data.progress;
-
       const topicProgress = allProgress.find(
         (p: any) => p.topic_slug === topicSlug,
       );
-
       if (topicProgress) {
         setProgress(topicProgress);
       } else {
@@ -108,11 +108,7 @@ export default function SelectLevelScreen() {
   }
 
   async function handleStartQuiz(level: number) {
-    // ✅ Prevent double request
-    if (isRequestingRef.current || startingQuiz) {
-      console.log("⚠️ Request already in progress, ignoring...");
-      return;
-    }
+    if (isRequestingRef.current || startingQuiz) return;
 
     if (!isLevelUnlocked(level)) {
       Alert.alert(
@@ -123,18 +119,14 @@ export default function SelectLevelScreen() {
     }
 
     try {
-      isRequestingRef.current = true; // ✅ Set flag
+      isRequestingRef.current = true;
       setStartingQuiz(true);
 
-      const requestData = {
+      const res = await api.post("/quiz/start", {
         topic_slug: topicSlug,
         level: level,
-      };
-      console.log("🎯 Starting quiz with:", requestData);
-
-      const res = await api.post("/quiz/start", requestData);
+      });
       const quizData = res.data.data;
-      console.log("✅ Quiz data received:", quizData);
 
       router.push({
         pathname: "/kuis/attempt",
@@ -148,30 +140,43 @@ export default function SelectLevelScreen() {
         },
       });
     } catch (err: any) {
-      console.error("❌ Start quiz error:", err);
       const errorMsg =
         err.response?.data?.error?.message || "Gagal memulai kuis";
       Alert.alert("Error", errorMsg);
     } finally {
       setStartingQuiz(false);
-      isRequestingRef.current = false; // ✅ Reset flag
+      isRequestingRef.current = false;
     }
   }
 
   if (loading) {
     return (
-      <Container>
+      // ✅ Samakan struktur loading dengan [slug].tsx
+      <View style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
-      </Container>
+        <BottomNav />
+      </View>
     );
   }
 
   return (
-    <Container>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    // ✅ Ganti Container dengan View biasa, sama seperti [slug].tsx
+    <View style={styles.container}>
+      {/* Header sama persis style dengan [slug].tsx */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color={Colors.text} />
+        </TouchableOpacity>
         <Text style={styles.title}>Pilih Level</Text>
+      </View>
+
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.subtitle}>
           Selesaikan level dengan nilai ≥80 untuk membuka level berikutnya
         </Text>
@@ -183,11 +188,10 @@ export default function SelectLevelScreen() {
           return (
             <Card
               key={levelData.level}
-              style={
-                unlocked
-                  ? styles.levelCard
-                  : { ...styles.levelCard, ...styles.lockedCard }
-              }
+              style={StyleSheet.flatten([
+                styles.levelCard,
+                !unlocked && styles.lockedCard,
+              ])}
             >
               <View style={styles.levelContent}>
                 <View style={styles.levelHeader}>
@@ -212,11 +216,7 @@ export default function SelectLevelScreen() {
                       {levelData.description}
                     </Text>
                   </View>
-                  {!unlocked && (
-                    <View style={styles.lockIcon}>
-                      <Text style={styles.lockEmoji}>🔒</Text>
-                    </View>
-                  )}
+                  {!unlocked && <Text style={styles.lockEmoji}>🔒</Text>}
                 </View>
 
                 {bestScore !== null && (
@@ -246,25 +246,52 @@ export default function SelectLevelScreen() {
           );
         })}
       </ScrollView>
-    </Container>
+
+      {/* ✅ BottomNav di luar ScrollView, sticky di bawah */}
+      <BottomNav />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // ✅ Sama persis dengan [slug].tsx
   container: {
     flex: 1,
+    backgroundColor: Colors.background,
+    paddingTop: 50,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+    gap: 12,
+  },
+  backBtn: {
+    padding: 8,
+    backgroundColor: Colors.primaryLight,
+    borderRadius: 12,
+  },
+  title: {
+    fontSize: 20,
+    fontFamily: "Galano-Bold",
+    color: Colors.text,
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+  },
+  scrollContent: {
     padding: 16,
+    paddingBottom: 24,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-  },
-  title: {
-    fontSize: 28,
-    fontFamily: "Galano-Bold",
-    color: Colors.text,
-    marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
@@ -314,9 +341,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Galano",
     color: Colors.textSecondary,
-  },
-  lockIcon: {
-    marginLeft: "auto",
   },
   lockEmoji: {
     fontSize: 24,

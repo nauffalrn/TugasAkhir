@@ -45,7 +45,7 @@ export async function saveAnswers(
   attemptId: string,
   answers: Array<{
     question_id: string;
-    selected_index: number;
+    selected_index: number | null;
     is_correct: boolean;
   }>,
 ) {

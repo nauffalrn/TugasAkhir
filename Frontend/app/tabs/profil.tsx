@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -7,7 +7,9 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  TouchableOpacity,
 } from "react-native";
+import { useFocusEffect } from "expo-router";
 import { useAuth } from "../hooks/useAuth";
 import { Colors } from "../constants/config";
 import { Card } from "../components/ui/card";
@@ -19,23 +21,49 @@ import { getBadgeImage } from "../utils/badges";
 interface Badge {
   topic_id: string;
   topic_title: string;
+  topic_slug: string;
   level: number;
   title: string;
   icon_key: string;
   earned_at: string;
 }
 
+interface GroupedBadge {
+  topic_id: string;
+  topic_title: string;
+  topic_slug: string;
+  highestLevel: number;
+  badges: Badge[];
+}
+
 export default function ProfilScreen() {
   const { user, logout } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const [badges, setBadges] = useState<Badge[]>([]);
+  const [groupedBadges, setGroupedBadges] = useState<GroupedBadge[]>([]);
+  // ✅ Expanded state TERPISAH dari groupedBadges agar tidak ikut reset
+  const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
+
+  const isMounted = useRef(false);
 
   useEffect(() => {
     loadProfile();
     loadBadges();
   }, []);
+
+  // ✅ useFocusEffect hanya jalan setelah mount pertama selesai
+  useFocusEffect(
+    useCallback(() => {
+      if (!isMounted.current) {
+        isMounted.current = true;
+        return;
+      }
+      loadProfile();
+      loadBadges();
+    }, []),
+  );
 
   async function loadProfile() {
     try {
@@ -51,18 +79,58 @@ export default function ProfilScreen() {
   async function loadBadges() {
     try {
       const res = await api.get("/profile/badges");
-      setBadges(res.data.data);
+      const badgeData: Badge[] = res.data.data;
+      setBadges(badgeData);
+
+      const groupMap = new Map<string, GroupedBadge>();
+      badgeData.forEach((badge) => {
+        if (!groupMap.has(badge.topic_id)) {
+          groupMap.set(badge.topic_id, {
+            topic_id: badge.topic_id,
+            topic_title: badge.topic_title,
+            topic_slug: badge.topic_slug,
+            highestLevel: badge.level,
+            badges: [badge],
+          });
+        } else {
+          const group = groupMap.get(badge.topic_id)!;
+          group.badges.push(badge);
+          // ✅ Selalu compare, ambil yang paling tinggi
+          if (badge.level > group.highestLevel) {
+            group.highestLevel = badge.level;
+          }
+        }
+      });
+
+      setGroupedBadges(Array.from(groupMap.values()));
     } catch (err) {
       console.error("Load badges error:", err);
     }
   }
 
+  // ✅ Toggle hanya ubah expandedTopics, tidak menyentuh groupedBadges
+  function toggleExpand(topicId: string) {
+    setExpandedTopics((prev) => {
+      const next = new Set(prev);
+      if (next.has(topicId)) {
+        next.delete(topicId);
+      } else {
+        next.add(topicId);
+      }
+      return next;
+    });
+  }
+
+  const levelLabels: Record<number, string> = {
+    1: "Pemula",
+    2: "Mahir",
+    3: "Expert",
+    4: "Master",
+  };
+
   async function handleLogout() {
     Alert.alert("Konfirmasi Logout", "Apakah Anda yakin ingin keluar?", [
-      {
-        text: "Batal",
-        style: "cancel",
-      },
+      { text: "Batal", style: "cancel" },
       {
         text: "Keluar",
         style: "destructive",
@@ -117,9 +185,7 @@ export default function ProfilScreen() {
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statBox}>
-              <Text style={styles.statNumber}>
-                {profile?.badges_earned || 0}
-              </Text>
+              <Text style={styles.statNumber}>{badges.length}</Text>
               <Text style={styles.statLabel}>Badge</Text>
             </View>
           </View>
@@ -129,34 +195,79 @@ export default function ProfilScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>🏆 Badge Saya</Text>
 
-          {badges.length === 0 ? (
+          {groupedBadges.length === 0 ? (
             <Card style={styles.emptyCard}>
               <Text style={styles.emptyText}>
                 Belum ada badge. Selesaikan kuis untuk mendapatkan badge!
               </Text>
             </Card>
           ) : (
-            <View style={styles.badgeGrid}>
-              {badges.map((badge, index) => (
-                <Card key={index} style={styles.badgeCard}>
-                  <Image
-                    source={getBadgeImage(badge.icon_key)}
-                    style={styles.badgeImage}
-                    resizeMode="contain"
-                  />
-                  <Text style={styles.badgeTitle} numberOfLines={2}>
-                    {badge.title}
-                  </Text>
-                  <Text style={styles.badgeTopic} numberOfLines={1}>
-                    {badge.topic_title}
-                  </Text>
+            groupedBadges.map((group) => {
+              const highestBadge = group.badges.reduce((prev, curr) =>
+                curr.level > prev.level ? curr : prev,
+              );
+
+              // ✅ Baca dari expandedTopics, bukan dari group object
+              const isExpanded = expandedTopics.has(group.topic_id);
+
+              return (
+                <Card key={group.topic_id} style={styles.badgeGroupCard}>
+                  <TouchableOpacity
+                    onPress={() => toggleExpand(group.topic_id)}
+                    style={styles.badgeGroupHeader}
+                    activeOpacity={0.7}
+                  >
+                    <Image
+                      source={getBadgeImage(highestBadge.icon_key)}
+                      style={styles.badgeImageLarge}
+                      resizeMode="contain"
+                    />
+                    <View style={styles.badgeGroupInfo}>
+                      <Text style={styles.badgeGroupTopic}>
+                        {group.topic_title}
+                      </Text>
+                      <Text style={styles.badgeGroupLevel}>
+                        🏅 {levelLabels[group.highestLevel]} (Level{" "}
+                        {group.highestLevel})
+                      </Text>
+                    </View>
+                    <Text style={styles.expandIcon}>
+                      {isExpanded ? "▲" : "▼"}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* ✅ Gunakan isExpanded */}
+                  {isExpanded && (
+                    <View style={styles.badgeSubList}>
+                      {group.badges
+                        .sort((a, b) => a.level - b.level)
+                        .map((badge) => (
+                          <View key={badge.level} style={styles.badgeSubItem}>
+                            <Image
+                              source={getBadgeImage(badge.icon_key)}
+                              style={styles.badgeImageSmall}
+                              resizeMode="contain"
+                            />
+                            <View>
+                              <Text style={styles.badgeSubTitle}>
+                                Level {badge.level} - {levelLabels[badge.level]}
+                              </Text>
+                              <Text style={styles.badgeSubDate}>
+                                {new Date(badge.earned_at).toLocaleDateString(
+                                  "id-ID",
+                                )}
+                              </Text>
+                            </View>
+                          </View>
+                        ))}
+                    </View>
+                  )}
                 </Card>
-              ))}
-            </View>
+              );
+            })
           )}
         </View>
 
-        {/* Logout Button */}
         <Button
           title={loggingOut ? "Keluar..." : "Keluar"}
           onPress={handleLogout}
@@ -260,33 +371,66 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: "center",
   },
-  badgeGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-  badgeCard: {
-    width: "48%",
+  badgeGroupCard: {
     padding: 16,
-    alignItems: "center",
-  },
-  badgeImage: {
-    width: 80,
-    height: 80,
     marginBottom: 12,
   },
-  badgeTitle: {
-    fontSize: 14,
+  badgeGroupHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  badgeImageLarge: {
+    width: 70,
+    height: 70,
+  },
+  badgeGroupInfo: {
+    flex: 1,
+  },
+  badgeGroupTopic: {
+    fontSize: 16,
     fontFamily: "Galano-Bold",
     color: Colors.text,
-    textAlign: "center",
     marginBottom: 4,
   },
-  badgeTopic: {
+  badgeGroupLevel: {
+    fontSize: 14,
+    fontFamily: "Galano-SemiBold",
+    color: Colors.primary,
+    marginBottom: 2,
+  },
+  expandIcon: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+  },
+  badgeSubList: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+    gap: 10,
+  },
+  badgeSubItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 8,
+    backgroundColor: Colors.surfaceVariant,
+    borderRadius: 12,
+  },
+  badgeImageSmall: {
+    width: 44,
+    height: 44,
+  },
+  badgeSubTitle: {
+    fontSize: 14,
+    fontFamily: "Galano-SemiBold",
+    color: Colors.text,
+  },
+  badgeSubDate: {
     fontSize: 12,
     fontFamily: "Galano",
     color: Colors.textSecondary,
-    textAlign: "center",
   },
   logoutBtn: {
     marginBottom: 40,

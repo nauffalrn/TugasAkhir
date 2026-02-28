@@ -23,24 +23,19 @@ quizRouter.post("/start", requireAuth, async (req, res) => {
 
 quizRouter.post("/submit", requireAuth, async (req, res) => {
   try {
-    const { attempt_id, topic_id, level, answers } = req.body;
-    if (!attempt_id || !topic_id || !level || !answers) {
-      return error(
-        res,
-        "INVALID_INPUT",
-        "attempt_id, topic_id, level, dan answers wajib",
-        400,
-      );
-    }
+    const { attempt_id, topic_id, topic_slug, level, answers } = req.body;
     const userId = (req as AuthedRequest).userId;
-    const data = await quizService.submitQuiz(
+
+    const result = await quizService.submitQuiz(
       userId,
       attempt_id,
       topic_id,
+      topic_slug,
       level,
       answers,
     );
-    return success(res, data);
+
+    return res.json({ ok: true, data: result });
   } catch (err: any) {
     console.error("Error /quiz/submit:", err);
     return error(res, err.code || "SERVER_ERROR", err.message, 500);

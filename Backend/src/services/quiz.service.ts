@@ -67,6 +67,7 @@ export async function submitQuiz(
   userId: string,
   attemptId: string,
   topicId: string,
+  topic_slug: string,
   level: number,
   answers: Array<{ question_id: string; selected_index: number }>,
 ) {
@@ -119,11 +120,14 @@ export async function submitQuiz(
   let correctCount = 0;
   const answerRecords = answers.map((ans) => {
     const correct = correctMap.get(ans.question_id);
-    const isCorrect = correct?.correct_index === ans.selected_index;
+    // ✅ Jika selected_index = -1 (kosong), langsung salah
+    const isCorrect =
+      ans.selected_index !== -1 &&
+      correct?.correct_index === ans.selected_index;
     if (isCorrect) correctCount++;
     return {
       question_id: ans.question_id,
-      selected_index: ans.selected_index,
+      selected_index: ans.selected_index === -1 ? null : ans.selected_index,
       is_correct: isCorrect,
     };
   });
@@ -179,13 +183,17 @@ export async function submitQuiz(
   // 8) Return review
   const review = answers.map((ans) => {
     const questionData = correctMap.get(ans.question_id);
+    // ✅ Jawaban kosong tetap -1 di review
+    const isCorrect =
+      ans.selected_index !== -1 &&
+      questionData?.correct_index === ans.selected_index;
     return {
       question_id: ans.question_id,
       prompt: questionData?.prompt,
       options: questionData?.options,
       selected_index: ans.selected_index,
       correct_index: questionData?.correct_index,
-      is_correct: questionData?.correct_index === ans.selected_index,
+      is_correct: isCorrect,
       explanation: questionData?.explanation,
     };
   });
@@ -194,6 +202,7 @@ export async function submitQuiz(
     score,
     correct_count: correctCount,
     total_questions: 10,
+    topic_slug: topic_slug,
     review,
     unlocked_next_level: score >= 80 && level < 4,
     badge_earned: badgeEarned,

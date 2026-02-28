@@ -15,6 +15,7 @@ import { Loading } from "../components/ui/loading";
 import { Colors } from "../constants/config";
 import type { Topic } from "../types";
 import { Ionicons } from "@expo/vector-icons";
+import { BottomNav } from "../components/layout/bottom-nav";
 
 export default function MateriDetail() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
@@ -56,14 +57,10 @@ export default function MateriDetail() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </TouchableOpacity>
-        <Text style={styles.title}>{topic.title}</Text>
+        <Text style={styles.title}>{topic?.title}</Text>
       </View>
 
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {topic.content_images.length > 0 ? (
           topic.content_images.map((img, idx) => (
             <Image
@@ -81,6 +78,9 @@ export default function MateriDetail() {
 
         <Button title="Mulai Kuis" onPress={handleStartQuiz} />
       </ScrollView>
+
+      {/* ✅ Navbar bawah */}
+      <BottomNav />
     </View>
   );
 }
@@ -89,13 +89,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-    paddingTop: 60,
+    paddingTop: 50,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     backgroundColor: Colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderLight,
