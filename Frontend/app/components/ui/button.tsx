@@ -12,7 +12,7 @@ import { Colors } from "../../constants/config";
 interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: "primary" | "secondary" | "danger";
+  variant?: "primary" | "secondary" | "danger" | "warning";
   size?: "small" | "medium" | "large";
   disabled?: boolean;
   loading?: boolean;
@@ -79,6 +79,9 @@ const styles = StyleSheet.create({
   dangerButton: {
     backgroundColor: Colors.danger,
   },
+  warningButton: {
+    backgroundColor: Colors.secondary, // kuning
+  },
   disabledButton: {
     opacity: 0.5,
   },
@@ -105,6 +108,9 @@ const styles = StyleSheet.create({
   },
   dangerText: {
     color: Colors.surface,
+  },
+  warningText: {
+    color: Colors.text,
   },
   disabledText: {
     opacity: 0.7,

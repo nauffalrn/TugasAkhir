@@ -1,19 +1,10 @@
 import React from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Image,
-  TouchableOpacity,
-} from "react-native";
+import { View, Text, StyleSheet, ScrollView, Image } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
-import { Container } from "../components/layout/container";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Colors } from "../constants/config";
 import { getBadgeImage } from "../utils/badges";
-import { Ionicons } from "@expo/vector-icons"; // ✅ tambah
 
 interface QuizResult {
   score: number;
@@ -45,23 +36,7 @@ export default function ResultScreen() {
   const level = parseInt(params.level as string);
   const isPassed = result.score >= 80;
 
-  // ✅ Tidak ada useEffect popup
-
   function handleBackToLevels() {
-    router.push({
-      pathname: "/kuis/select-level",
-      params: { topicSlug, refresh: Date.now().toString() },
-    });
-  }
-
-  function handleRetry() {
-    router.push({
-      pathname: "/kuis/select-level",
-      params: { topicSlug, refresh: Date.now().toString() },
-    });
-  }
-
-  function handleNextLevel() {
     router.push({
       pathname: "/kuis/select-level",
       params: { topicSlug, refresh: Date.now().toString() },
@@ -78,199 +53,258 @@ export default function ResultScreen() {
     });
   }
 
-  // ✅ Ke menu utama (tabs)
   function handleGoHome() {
-    router.replace("/(tabs)" as any);
+    router.replace("/tabs/kuis" as any);
   }
 
   return (
-    <Container>
-      {/* ✅ Hapus header home button, tidak perlu back di result */}
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Score Card */}
-        <Card style={styles.scoreCard}>
-          <Text style={styles.scoreTitle}>
-            {isPassed ? "🎉 Selamat!" : "💪 Coba Lagi"}
-          </Text>
-          <View
+    <View style={styles.wrapper}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ✅ Header sederhana tanpa kotak */}
+        <Text style={styles.headerTitle}>
+          {isPassed ? "🎉 Selamat!" : "💪 Ayo Coba Lagi!"}
+        </Text>
+
+        {/* ✅ Score besar di tengah, tanpa Card pembungkus ganda */}
+        <View
+          style={[
+            styles.scoreCircle,
+            {
+              backgroundColor: isPassed
+                ? Colors.successLight
+                : Colors.dangerLight,
+            },
+          ]}
+        >
+          <Text
             style={[
-              styles.scoreCircle,
-              {
-                backgroundColor: isPassed
-                  ? Colors.successLight
-                  : Colors.dangerLight,
-              },
+              styles.scoreNumber,
+              { color: isPassed ? Colors.success : Colors.danger },
             ]}
           >
-            <Text
-              style={[
-                styles.scoreNumber,
-                { color: isPassed ? Colors.success : Colors.danger },
-              ]}
-            >
-              {result.score.toFixed(0)}
+            {result.score.toFixed(0)}
+          </Text>
+        </View>
+
+        {/* Badge earned */}
+        {result.badge_earned && (
+          <View style={styles.badgeContainer}>
+            <Image
+              source={getBadgeImage(`${topicSlug}-level-${level}`)}
+              style={styles.badgeImage}
+              resizeMode="contain"
+            />
+            <View style={styles.badgeTextWrap}>
+              <Text style={styles.badgeTitle}>Badge Didapatkan!</Text>
+              <Text style={styles.badgeSubtitle}>
+                🎖️ Level {level} -{" "}
+                {["Pemula", "Mahir", "Expert", "Master"][level - 1]}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Unlock notif */}
+        {result.unlocked_next_level && (
+          <View style={styles.unlockedBox}>
+            <Text style={styles.unlockedText}>
+              🔓 Level {level + 1} telah terbuka!
             </Text>
           </View>
+        )}
 
-          {/* ✅ Tampilkan badge image jika badge earned */}
-          {result.badge_earned && (
-            <View style={styles.badgeContainer}>
-              <Image
-                source={getBadgeImage(`${topicSlug}-level-${level}`)}
-                style={styles.badgeImage}
-                resizeMode="contain"
-              />
-              <Text style={styles.badgeText}>
-                🎖️ Badge Level {level} Didapatkan!
-              </Text>
-            </View>
-          )}
-
-          {result.unlocked_next_level && (
-            <View style={styles.unlockedBox}>
-              <Text style={styles.unlockedText}>
-                🔓 Level {level + 1} Terbuka!
-              </Text>
-            </View>
-          )}
-        </Card>
-
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
+        {/* Action buttons */}
+        <View style={styles.actions}>
           {result.review && result.review.length > 0 && (
+            <View style={styles.reviewSection}>
+              <Button
+                title="📝 Review Jawaban"
+                onPress={handleReview}
+                variant="secondary"
+                size="large"
+                style={styles.btnReview}
+              />
+            </View>
+          )}
+
+          <View style={styles.mainActions}>
+            {isPassed && result.unlocked_next_level ? (
+              <View style={styles.btnRow}>
+                <Button
+                  title="🔄 Ulangi Kuis"
+                  onPress={handleBackToLevels}
+                  variant="secondary"
+                  size="medium"
+                  style={styles.btnHalf}
+                />
+                <Button
+                  title={`Lanjut Level ${level + 1} →`}
+                  onPress={handleBackToLevels}
+                  variant="primary"
+                  size="medium"
+                  style={styles.btnHalf}
+                />
+              </View>
+            ) : isPassed ? (
+              <View style={styles.btnRow}>
+                <Button
+                  title="🔄 Ulangi Kuis"
+                  onPress={handleBackToLevels}
+                  variant="secondary"
+                  size="medium"
+                  style={styles.btnHalf}
+                />
+                <Button
+                  title="Pilih Level"
+                  onPress={handleBackToLevels}
+                  variant="primary"
+                  size="medium"
+                  style={styles.btnHalf}
+                />
+              </View>
+            ) : (
+              <View style={styles.btnRow}>
+                <Button
+                  title="🔄 Ulangi Kuis"
+                  onPress={handleBackToLevels}
+                  variant="secondary"
+                  size="medium"
+                  style={styles.btnHalf}
+                />
+                <Button
+                  title="Pilih Level"
+                  onPress={handleBackToLevels}
+                  variant="primary"
+                  size="medium"
+                  style={styles.btnHalf}
+                />
+              </View>
+            )}
+
             <Button
-              title="📝 Review Jawaban"
-              onPress={handleReview}
+              title="🏠 Menu Utama"
+              onPress={handleGoHome}
               variant="secondary"
               size="large"
-              style={styles.button}
+              style={styles.btnFull}
             />
-          )}
-
-          {isPassed && result.unlocked_next_level ? (
-            <>
-              <Button
-                title={`Lanjut ke Level ${level + 1}`}
-                onPress={handleNextLevel}
-                variant="primary"
-                size="large"
-                style={styles.button}
-              />
-              <Button
-                title="Kembali ke Daftar Level"
-                onPress={handleBackToLevels}
-                variant="secondary"
-                size="large"
-                style={styles.button}
-              />
-            </>
-          ) : isPassed ? (
-            <Button
-              title="Kembali ke Daftar Level"
-              onPress={handleBackToLevels}
-              variant="primary"
-              size="large"
-              style={styles.button}
-            />
-          ) : (
-            <>
-              <Button
-                title="Coba Lagi"
-                onPress={handleRetry}
-                variant="primary"
-                size="large"
-                style={styles.button}
-              />
-              <Button
-                title="Kembali ke Daftar Level"
-                onPress={handleBackToLevels}
-                variant="secondary"
-                size="large"
-                style={styles.button}
-              />
-            </>
-          )}
-
-          {/* ✅ Tombol ke menu lain */}
-          <Button
-            title="🏠 Ke Menu Utama"
-            onPress={handleGoHome}
-            variant="secondary"
-            size="large"
-            style={styles.button}
-          />
+          </View>
         </View>
       </ScrollView>
-    </Container>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  wrapper: {
     flex: 1,
-    padding: 16,
-    paddingTop: 60, // ✅ ganti header dengan paddingTop langsung
+    backgroundColor: Colors.background,
+    paddingTop: 50,
   },
-  scoreCard: {
-    padding: 32,
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 24,
+    paddingBottom: 48,
+    alignItems: "center",
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontFamily: "Galano-Bold",
+    color: Colors.text,
+    marginBottom: 24,
+    textAlign: "center",
+  },
+  scoreCircle: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    justifyContent: "center",
     alignItems: "center",
     marginBottom: 24,
   },
-  scoreTitle: {
-    fontSize: 28,
-    fontFamily: "Galano-Bold",
-    color: Colors.text,
-    marginBottom: 20,
-  },
-  scoreCircle: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
-  },
   scoreNumber: {
-    fontSize: 56,
+    fontSize: 64,
     fontFamily: "Galano-Bold",
+    lineHeight: 72,
   },
+  // ✅ Badge - warna netral abu/surface
   badgeContainer: {
+    flexDirection: "row",
     alignItems: "center",
-    marginTop: 16,
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
     padding: 16,
-    backgroundColor: Colors.secondaryLight,
-    borderRadius: 16,
     width: "100%",
+    marginBottom: 12,
+    gap: 16,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
   },
   badgeImage: {
-    width: 100,
-    height: 100,
-    marginBottom: 8,
+    width: 64,
+    height: 64,
   },
-  badgeText: {
+  badgeTextWrap: {
+    flex: 1,
+  },
+  badgeTitle: {
     fontSize: 16,
     fontFamily: "Galano-Bold",
-    color: Colors.secondary,
-    textAlign: "center",
+    color: Colors.text,
+    marginBottom: 4,
   },
+  badgeSubtitle: {
+    fontSize: 14,
+    fontFamily: "Galano-SemiBold",
+    color: Colors.textSecondary, // ✅ abu bukan kuning
+  },
+  // ✅ Unlock - warna netral, tidak hijau terang
   unlockedBox: {
-    marginTop: 12,
-    padding: 12,
-    backgroundColor: Colors.successLight,
-    borderRadius: 12,
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     width: "100%",
+    marginBottom: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
   },
   unlockedText: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: "Galano-SemiBold",
-    color: Colors.success,
-    textAlign: "center",
+    color: Colors.text,
   },
-  actionButtons: {
-    gap: 12,
-    marginBottom: 32,
-  },
-  button: {
+  actions: {
     width: "100%",
+    marginTop: 8,
+  },
+  reviewSection: {
+    marginBottom: 90,
+  },
+  
+  btnReview: {
+    width: "100%",
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+  },
+  mainActions: {
+    gap: 12,
+  },
+  btnFull: {
+    width: "100%",
+  },
+  btnRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  btnHalf: {
+    flex: 1,
   },
 });
