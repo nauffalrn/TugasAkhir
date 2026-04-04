@@ -5,7 +5,7 @@ console.log("🚀 Booting server...");
 const app = createApp();
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
-const HOST = "0.0.0.0"; // Penting! Jangan 'localhost'
+const HOST = "0.0.0.0";
 
 app.listen(PORT, HOST, () => {
   console.log(`✅ Server running on http://${HOST}:${PORT}`);

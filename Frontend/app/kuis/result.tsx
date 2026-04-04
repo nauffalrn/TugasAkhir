@@ -1,10 +1,18 @@
-import React from "react";
-import { View, Text, StyleSheet, ScrollView, Image } from "react-native";
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Image,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
-import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Colors } from "../constants/config";
 import { getBadgeImage } from "../utils/badges";
+import { api } from "../lib/api";
 
 interface QuizResult {
   score: number;
@@ -30,6 +38,9 @@ export default function ResultScreen() {
     topicSlug?: string;
     level?: string;
   }>();
+
+  // ✅ Tambahkan state loading
+  const [isRetrying, setIsRetrying] = useState(false);
 
   const result: QuizResult = JSON.parse(params.result as string);
   const topicSlug = params.topicSlug as string;
@@ -57,6 +68,35 @@ export default function ResultScreen() {
     router.replace("/tabs/kuis" as any);
   }
 
+  async function handleRetryQuiz() {
+    if (isRetrying) return;
+    setIsRetrying(true);
+    try {
+      const res = await api.post("/quiz/start", {
+        topic_slug: topicSlug,
+        level: level,
+      });
+      const quizData = res.data.data;
+
+      router.replace({
+        pathname: "/kuis/attempt",
+        params: {
+          attemptId: quizData.attempt_id,
+          topicId: quizData.topic_id,
+          topicSlug: topicSlug,
+          level: level.toString(),
+          timeLimit: quizData.time_limit_seconds?.toString() || "0",
+          questions: JSON.stringify(quizData.questions),
+        },
+      });
+    } catch (err: any) {
+      const errorMsg =
+        err.response?.data?.error?.message || "Gagal memulai ulang kuis";
+      Alert.alert("Error", errorMsg);
+      setIsRetrying(false);
+    }
+  }
+
   return (
     <View style={styles.wrapper}>
       <ScrollView
@@ -64,12 +104,12 @@ export default function ResultScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ✅ Header sederhana tanpa kotak */}
+        {}
         <Text style={styles.headerTitle}>
           {isPassed ? "🎉 Selamat!" : "💪 Ayo Coba Lagi!"}
         </Text>
 
-        {/* ✅ Score besar di tengah, tanpa Card pembungkus ganda */}
+        {}
         <View
           style={[
             styles.scoreCircle,
@@ -135,11 +175,12 @@ export default function ResultScreen() {
             {isPassed && result.unlocked_next_level ? (
               <View style={styles.btnRow}>
                 <Button
-                  title="🔄 Ulangi Kuis"
-                  onPress={handleBackToLevels}
+                  title={isRetrying ? "Memuat..." : "🔄 Ulangi Kuis"}
+                  onPress={handleRetryQuiz}
                   variant="secondary"
                   size="medium"
                   style={styles.btnHalf}
+                  disabled={isRetrying}
                 />
                 <Button
                   title={`Lanjut Level ${level + 1} →`}
@@ -152,11 +193,12 @@ export default function ResultScreen() {
             ) : isPassed ? (
               <View style={styles.btnRow}>
                 <Button
-                  title="🔄 Ulangi Kuis"
-                  onPress={handleBackToLevels}
+                  title={isRetrying ? "Memuat..." : "🔄 Ulangi Kuis"}
+                  onPress={handleRetryQuiz}
                   variant="secondary"
                   size="medium"
                   style={styles.btnHalf}
+                  disabled={isRetrying}
                 />
                 <Button
                   title="Pilih Level"
@@ -167,20 +209,22 @@ export default function ResultScreen() {
                 />
               </View>
             ) : (
+              // Jika tidak lulus, tombol utamanya adalah "Coba Lagi"
               <View style={styles.btnRow}>
                 <Button
-                  title="🔄 Ulangi Kuis"
+                  title="Pilih Level"
                   onPress={handleBackToLevels}
                   variant="secondary"
                   size="medium"
                   style={styles.btnHalf}
                 />
                 <Button
-                  title="Pilih Level"
-                  onPress={handleBackToLevels}
+                  title={isRetrying ? "Memuat..." : "Coba Lagi"}
+                  onPress={handleRetryQuiz} // ✅ Panggil fungsi baru
                   variant="primary"
                   size="medium"
                   style={styles.btnHalf}
+                  disabled={isRetrying}
                 />
               </View>
             )}
@@ -288,7 +332,7 @@ const styles = StyleSheet.create({
   reviewSection: {
     marginBottom: 90,
   },
-  
+
   btnReview: {
     width: "100%",
     borderWidth: 1.5,
