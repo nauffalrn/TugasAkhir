@@ -1,45 +1,44 @@
 import { Router } from "express";
-import { z } from "zod";
 import * as authService from "../services/auth.service";
-import { success, error } from "../utils/response";
+import { error, success } from "../utils/response";
 
 export const authRouter = Router();
 
 authRouter.post("/register", async (req, res) => {
-  const bodySchema = z.object({
-    email: z.string().email(),
-    password: z.string().min(6),
-    username: z.string().min(3).max(24).optional(),
-  });
+  const { email, password, username } = req.body;
 
-  const parsed = bodySchema.safeParse(req.body);
-  if (!parsed.success) {
-    return error(res, "BAD_REQUEST", parsed.error.message, 400);
+  if (!email || !password) {
+    return error(res, "BAD_REQUEST", "Email dan password wajib diisi", 400);
+  }
+  if (password.length < 6) {
+    return error(res, "BAD_REQUEST", "Password minimal 6 karakter", 400);
+  }
+  if (username && username.length < 3) {
+    return error(res, "BAD_REQUEST", "Username minimal 3 karakter", 400);
   }
 
   try {
-    const user = await authService.registerUser(parsed.data.email, parsed.data.password, parsed.data.username);
-    return success(res, { user });
+    const data = await authService.registerUser(email, password, username);
+    return success(res, data);
   } catch (err: any) {
-    return error(res, err.code || "INTERNAL_ERROR", err.message, err.code === "EMAIL_EXISTS" || err.code === "USERNAME_EXISTS" ? 409 : 500);
+    const statusCode =
+      err.code === "EMAIL_EXISTS" || err.code === "USERNAME_EXISTS" ? 409 : 500;
+    return error(res, err.code || "INTERNAL_ERROR", err.message, statusCode);
   }
 });
 
 authRouter.post("/login", async (req, res) => {
-  const bodySchema = z.object({
-    email: z.string().email(),
-    password: z.string().min(1),
-  });
+  const { email, password } = req.body;
 
-  const parsed = bodySchema.safeParse(req.body);
-  if (!parsed.success) {
-    return error(res, "BAD_REQUEST", parsed.error.message, 400);
+  if (!email || !password) {
+    return error(res, "BAD_REQUEST", "Email dan password wajib diisi", 400);
   }
 
   try {
-    const result = await authService.loginUser(parsed.data.email, parsed.data.password);
+    const result = await authService.loginUser(email, password);
     return success(res, result);
   } catch (err: any) {
-    return error(res, err.code || "INTERNAL_ERROR", err.message, err.code === "INVALID_LOGIN" ? 401 : 500);
+    const statusCode = err.code === "INVALID_LOGIN" ? 401 : 500;
+    return error(res, err.code || "INTERNAL_ERROR", err.message, statusCode);
   }
 });

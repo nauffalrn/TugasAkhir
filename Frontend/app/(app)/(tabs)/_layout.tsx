@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
 import React from "react";
-import { Colors } from "../constants/config";
+import { Colors } from "../../_constants/config";
 import { Ionicons } from "@expo/vector-icons";
 import { Platform } from "react-native";
 

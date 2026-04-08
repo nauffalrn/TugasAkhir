@@ -1,23 +1,24 @@
-import { Redirect } from "expo-router";
-import { useAuth } from "./hooks/useAuth";
-import { View, ActivityIndicator } from "react-native";
-import { Colors } from "./constants/config";
+import { useEffect } from "react";
+import { useRouter } from "expo-router";
+import { useAuth } from "./_hooks/useAuth";
+import * as SplashScreen from "expo-splash-screen";
 
 export default function Index() {
-  const { user, loading } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
 
-  if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-      </View>
-    );
-  }
+  useEffect(() => {
+    if (isLoading) {
+      return;
+    }
+    SplashScreen.hideAsync();
 
-  // Redirect berdasarkan auth status
-  if (user) {
-    return <Redirect href="/tabs/materi" />;
-  }
+    if (isAuthenticated) {
+      router.replace("/(app)/(tabs)/materi");
+    } else {
+      router.replace("/(auth)/login");
+    }
+  }, [isAuthenticated, isLoading, router]);
 
-  return <Redirect href="/auth/login" />;
+  return null;
 }

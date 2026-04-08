@@ -1,8 +1,14 @@
 import React, { ReactNode } from "react";
 import { View, StyleSheet, ScrollView } from "react-native";
-import { Colors } from "../../constants/config";
+import { Colors } from "../../_constants/config";
 
-export function Container({ children, scroll = false }: { children: ReactNode; scroll?: boolean }) {
+export function Container({
+  children,
+  scroll = false,
+}: {
+  children: ReactNode;
+  scroll?: boolean;
+}) {
   const Wrapper = scroll ? ScrollView : View;
   return <Wrapper style={styles.container}>{children}</Wrapper>;
 }

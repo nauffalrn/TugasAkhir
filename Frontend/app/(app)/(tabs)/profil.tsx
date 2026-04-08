@@ -10,13 +10,13 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { useFocusEffect } from "expo-router";
-import { useAuth } from "../hooks/useAuth";
-import { Colors } from "../constants/config";
-import { Card } from "../components/ui/card";
-import { Button } from "../components/ui/button";
-import { Container } from "../components/layout/container";
-import { api } from "../lib/api";
-import { getBadgeImage } from "../utils/badges";
+import { useAuth } from "../../_hooks/useAuth";
+import { Colors } from "../../_constants/config";
+import { Card } from "../../_components/ui/card";
+import { Button } from "../../_components/ui/button";
+import { Container } from "../../_components/layout/container";
+import { api } from "../../_lib/api";
+import { getBadgeImage } from "../../_utils/badges";
 
 interface Badge {
   topic_id: string;

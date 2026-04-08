@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { router, usePathname } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "../../constants/config";
+import { Colors } from "../../_constants/config";
 
 export function BottomNav() {
   const pathname = usePathname();

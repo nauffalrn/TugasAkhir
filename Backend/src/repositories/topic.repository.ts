@@ -1,16 +1,34 @@
 import { supabase } from "../lib/supabase";
 
 export async function findAllTopics() {
-  return supabase
+  return await supabase
     .from("topics")
-    .select("id, title, slug, sort_order")
+    .select(
+      `
+      id,
+      title,
+      slug,
+      sort_order,
+      created_at, 
+      content_images
+    `,
+    )
     .order("sort_order", { ascending: true });
 }
 
 export async function findTopicBySlug(slug: string) {
-  return supabase
+  return await supabase
     .from("topics")
-    .select("id, title, slug, sort_order, content_images")
+    .select(
+      `
+      id,
+      title,
+      slug,
+      sort_order,
+      created_at,
+      content_images
+    `,
+    ) // ✅ FIX: Tambahkan created_at
     .eq("slug", slug)
     .single();
 }

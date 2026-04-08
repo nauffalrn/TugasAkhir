@@ -9,12 +9,11 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
-import { Card } from "../components/ui/card";
-import { Button } from "../components/ui/button";
-import { Colors } from "../constants/config";
-import { api } from "../lib/api";
+import { Card } from "../../_components/ui/card";
+import { Button } from "../../_components/ui/button";
+import { Colors } from "../../_constants/config";
+import { api } from "../../_lib/api";
 import { Ionicons } from "@expo/vector-icons";
-import { BottomNav } from "../components/layout/bottom-nav";
 
 interface Progress {
   topic_id: string;
@@ -66,8 +65,10 @@ export default function SelectLevelScreen() {
   const isRequestingRef = useRef(false);
 
   useEffect(() => {
-    loadProgress();
-  }, [params.refresh]);
+    if (topicSlug) {
+      loadProgress();
+    }
+  }, [topicSlug, params.refresh]);
 
   async function loadProgress() {
     try {
@@ -128,8 +129,9 @@ export default function SelectLevelScreen() {
       });
       const quizData = res.data.data;
 
+      // ✅ FIX: Gunakan router.push dengan object untuk mengirim semua parameter
       router.push({
-        pathname: "/kuis/attempt",
+        pathname: "/(app)/kuis/attempt",
         params: {
           attemptId: quizData.attempt_id,
           topicId: quizData.topic_id,
@@ -151,20 +153,16 @@ export default function SelectLevelScreen() {
 
   if (loading) {
     return (
-      // ✅ Samakan struktur loading dengan [slug].tsx
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
-        <BottomNav />
       </View>
     );
   }
 
   return (
-    // ✅ Ganti Container dengan View biasa, sama seperti [slug].tsx
     <View style={styles.container}>
-      {/* Header sama persis style dengan [slug].tsx */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
@@ -246,15 +244,11 @@ export default function SelectLevelScreen() {
           );
         })}
       </ScrollView>
-
-      {/* ✅ BottomNav di luar ScrollView, sticky di bawah */}
-      <BottomNav />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // ✅ Sama persis dengan [slug].tsx
   container: {
     flex: 1,
     backgroundColor: Colors.background,

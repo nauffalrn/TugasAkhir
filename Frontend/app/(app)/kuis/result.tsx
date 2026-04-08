@@ -9,10 +9,10 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
-import { Button } from "../components/ui/button";
-import { Colors } from "../constants/config";
-import { getBadgeImage } from "../utils/badges";
-import { api } from "../lib/api";
+import { Button } from "../../_components/ui/button";
+import { Colors } from "../../_constants/config";
+import { getBadgeImage } from "../../_utils/badges";
+import { api } from "../../_lib/api";
 
 interface QuizResult {
   score: number;
@@ -39,7 +39,6 @@ export default function ResultScreen() {
     level?: string;
   }>();
 
-  // ✅ Tambahkan state loading
   const [isRetrying, setIsRetrying] = useState(false);
 
   const result: QuizResult = JSON.parse(params.result as string);
@@ -49,14 +48,14 @@ export default function ResultScreen() {
 
   function handleBackToLevels() {
     router.push({
-      pathname: "/kuis/select-level",
+      pathname: "/(app)/kuis/select-level",
       params: { topicSlug, refresh: Date.now().toString() },
     });
   }
 
   function handleReview() {
     router.push({
-      pathname: "/kuis/review",
+      pathname: "/(app)/kuis/review",
       params: {
         review: JSON.stringify(result.review),
         level: level.toString(),
@@ -65,7 +64,7 @@ export default function ResultScreen() {
   }
 
   function handleGoHome() {
-    router.replace("/tabs/kuis" as any);
+    router.replace("/(app)/(tabs)/kuis");
   }
 
   async function handleRetryQuiz() {
@@ -79,7 +78,7 @@ export default function ResultScreen() {
       const quizData = res.data.data;
 
       router.replace({
-        pathname: "/kuis/attempt",
+        pathname: "/(app)/kuis/attempt",
         params: {
           attemptId: quizData.attempt_id,
           topicId: quizData.topic_id,

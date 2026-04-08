@@ -9,13 +9,12 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
-import { api } from "../lib/api";
-import { Button } from "../components/ui/button";
-import { Loading } from "../components/ui/loading";
-import { Colors } from "../constants/config";
-import type { Topic } from "../types";
 import { Ionicons } from "@expo/vector-icons";
-import { BottomNav } from "../components/layout/bottom-nav";
+import { Topic } from '@/app/_types';
+import { api } from '@/app/_lib/api';
+import { Loading } from '@/app/_components/ui/loading';
+import { Colors } from '@/app/_constants/config';
+import { Button } from '@/app/_components/ui/button';
 
 export default function MateriDetail() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
@@ -23,8 +22,10 @@ export default function MateriDetail() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadTopic();
-  }, []);
+    if (slug) {
+      loadTopic();
+    }
+  }, [slug]);
 
   async function loadTopic() {
     try {
@@ -37,11 +38,10 @@ export default function MateriDetail() {
     }
   }
 
-  // Di tombol "Kerjakan Kuis"
   function handleStartQuiz() {
     if (!topic) return;
     router.push({
-      pathname: "/kuis/select-level",
+      pathname: "/(app)/kuis/select-level",
       params: {
         topicSlug: topic.slug,
       },
@@ -60,9 +60,12 @@ export default function MateriDetail() {
         <Text style={styles.title}>{topic?.title}</Text>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {topic.content_images.length > 0 ? (
-          topic.content_images.map((img, idx) => (
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {topic.content_images && topic.content_images.length > 0 ? (
+          topic.content_images.map((img: string, idx: number) => (
             <Image
               key={idx}
               source={{ uri: img }}
@@ -71,16 +74,15 @@ export default function MateriDetail() {
             />
           ))
         ) : (
-          <Text style={styles.placeholder}>
-            Materi belum tersedia (gambar akan ditambahkan)
-          </Text>
+          <Text style={styles.placeholder}>Materi belum tersedia.</Text>
         )}
 
-        <Button title="Mulai Kuis" onPress={handleStartQuiz} />
+        <Button
+          title="Kerjakan Kuis"
+          onPress={handleStartQuiz}
+          style={{ marginTop: 16 }}
+        />
       </ScrollView>
-
-      {/* ✅ Navbar bawah */}
-      <BottomNav />
     </View>
   );
 }
@@ -117,7 +119,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 100,
+    paddingBottom: 24,
   },
   image: {
     width: "100%",

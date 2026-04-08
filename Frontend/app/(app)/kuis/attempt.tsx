@@ -11,9 +11,9 @@ import {
   FlatList,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
-import { Container } from "../components/layout/container";
-import { Colors } from "../constants/config";
-import { api } from "../lib/api";
+import { Container } from "../../_components/layout/container";
+import { Colors } from "../../_constants/config";
+import { api } from "../../_lib/api";
 
 interface Question {
   id: string;
@@ -625,34 +625,32 @@ const styles = StyleSheet.create({
     borderTopColor: Colors.borderLight,
     gap: 12,
   },
-  // ✅ Prev - warna abu/secondary
   prevButton: {
     flex: 1,
     paddingVertical: 14,
     borderRadius: 16,
-    backgroundColor: Colors.textSecondary,
+    backgroundColor: Colors.border,
     alignItems: "center",
   },
   prevButtonText: {
     fontSize: 16,
     fontFamily: "Galano-SemiBold",
-    color: Colors.surface,
+    color: Colors.text,
   },
-  // ✅ Next - warna primary jika sudah jawab, abu jika belum
   nextButton: {
-    flex: 1,
+    flex: 2,
     paddingVertical: 14,
     borderRadius: 16,
     backgroundColor: Colors.primary,
     alignItems: "center",
   },
   nextButtonUnanswered: {
-    backgroundColor: Colors.borderLight,
+    opacity: 0.5,
   },
   nextButtonText: {
     fontSize: 16,
     fontFamily: "Galano-SemiBold",
-    color: Colors.surface,
+    color: Colors.text,
   },
   navButtonDisabled: {
     opacity: 0.4,

@@ -4,7 +4,11 @@ import * as userRepo from "../repositories/user.repository";
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
-export async function registerUser(email: string, password: string, username?: string) {
+export async function registerUser(
+  email: string,
+  password: string,
+  username?: string,
+) {
   // Cek email exists
   const emailExists = await userRepo.checkEmailExists(email);
   if (emailExists) {
@@ -23,12 +27,24 @@ export async function registerUser(email: string, password: string, username?: s
   const passwordHash = await bcrypt.hash(password, env.BCRYPT_ROUNDS);
 
   // Create user
-  const { data, error } = await userRepo.createUser(email, passwordHash, username || null);
-  if (error) {
-    throw { code: "DB_ERROR", message: error.message };
+  const { data: user, error } = await userRepo.createUser(
+    email,
+    passwordHash,
+    username,
+  );
+  if (error || !user) {
+    throw { code: "DB_ERROR", message: error?.message || "Gagal membuat user" };
   }
 
-  return data;
+  // ✅ FIX: Buat dan kembalikan token setelah user berhasil dibuat
+  const token = jwt.sign({ sub: user.id }, env.JWT_SECRET, {
+    expiresIn: "7d",
+  });
+
+  return {
+    token,
+    user: { id: user.id, email: user.email, username: user.username },
+  };
 }
 
 export async function loginUser(email: string, password: string) {

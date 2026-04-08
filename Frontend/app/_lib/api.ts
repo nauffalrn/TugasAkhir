@@ -1,5 +1,5 @@
 import axios, { AxiosError } from "axios";
-import { API_URL } from "../constants/config";
+import { API_URL } from "../_constants/config";
 import { storage } from "./storage";
 
 // Create axios instance

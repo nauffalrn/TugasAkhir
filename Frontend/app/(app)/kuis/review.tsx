@@ -9,9 +9,9 @@ import {
   FlatList,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
-import { Container } from "../components/layout/container";
-import { Card } from "../components/ui/card";
-import { Colors } from "../constants/config";
+import { Container } from "../../_components/layout/container";
+import { Card } from "../../_components/ui/card";
+import { Colors } from "../../_constants/config";
 import { Ionicons } from "@expo/vector-icons"; // ✅ tambah
 
 interface ReviewItem {

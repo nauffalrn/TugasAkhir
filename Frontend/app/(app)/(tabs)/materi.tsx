@@ -8,10 +8,11 @@ import {
   Alert,
 } from "react-native";
 import { router } from "expo-router";
-import { api } from "../lib/api";
-import { Loading } from "../components/ui/loading";
-import { Colors } from "../constants/config";
-import type { Topic } from "../types";
+import { api } from "../../_lib/api";
+import { Container } from "../../_components/layout/container";
+import { Loading } from "../../_components/ui/loading";
+import { Colors } from "../../_constants/config";
+import type { Topic } from "../../_types";
 import { Ionicons } from "@expo/vector-icons";
 
 const topicColors = [
@@ -23,7 +24,7 @@ const topicColors = [
   { bg: Colors.accent6, light: "#EDE9FE" },
 ];
 
-export default function KuisScreen() {
+export default function MateriScreen() {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -47,9 +48,9 @@ export default function KuisScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>🎮 Pilih Kuis</Text>
+        <Text style={styles.headerTitle}>📚 Materi Belajar</Text>
         <Text style={styles.headerSubtitle}>
-          Uji pemahamanmu dengan kuis interaktif!
+          Pilih topik yang ingin kamu pelajari
         </Text>
       </View>
 
@@ -60,9 +61,7 @@ export default function KuisScreen() {
           const color = topicColors[index % topicColors.length];
           return (
             <TouchableOpacity
-              onPress={() =>
-                router.push(`/kuis/select-level?topicSlug=${item.slug}`)
-              }
+              onPress={() => router.push(`/(app)/materi/${item.slug}`)}
               style={styles.topicCardWrapper}
               activeOpacity={0.8}
             >
@@ -73,17 +72,13 @@ export default function KuisScreen() {
                   <View
                     style={[styles.iconCircle, { backgroundColor: color.bg }]}
                   >
-                    <Ionicons
-                      name="game-controller"
-                      size={24}
-                      color="#FFFFFF"
-                    />
+                    <Ionicons name="book" size={24} color="#FFFFFF" />
                   </View>
                 </View>
                 <Text style={styles.topicTitle}>{item.title}</Text>
                 <View style={styles.topicFooter}>
                   <Text style={[styles.topicAction, { color: color.bg }]}>
-                    Mulai Kuis
+                    Pelajari Sekarang
                   </Text>
                   <Ionicons name="arrow-forward" size={20} color={color.bg} />
                 </View>

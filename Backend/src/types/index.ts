@@ -13,10 +13,10 @@ export interface User {
 
 export interface Topic {
   id: string;
-  slug: string;
   title: string;
-  content_images: string[];
+  slug: string;
   sort_order: number;
+  content_images: string[];
   created_at: string;
 }
 
