@@ -1,25 +1,39 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
   StyleSheet,
   Image,
   Alert,
-  ScrollView,
   TouchableOpacity,
+  Modal,
+  Dimensions,
+  FlatList,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
+import ImageViewer from "react-native-image-zoom-viewer";
+import { api } from "../../_lib/api";
+import { Button } from "../../_components/ui/button";
+import { Loading } from "../../_components/ui/loading";
+import { Colors } from "../../_constants/config";
+import type { Topic } from "../../_types";
 import { Ionicons } from "@expo/vector-icons";
-import { Topic } from '@/app/_types';
-import { api } from '@/app/_lib/api';
-import { Loading } from '@/app/_components/ui/loading';
-import { Colors } from '@/app/_constants/config';
-import { Button } from '@/app/_components/ui/button';
+
+const { width: screenWidth } = Dimensions.get("window");
 
 export default function MateriDetail() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const [topic, setTopic] = useState<Topic | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isViewerVisible, setIsViewerVisible] = useState(false);
+  const [imageIndex, setImageIndex] = useState(0);
+  const flatListRef = useRef<FlatList>(null);
+
+  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+    if (viewableItems.length > 0) {
+      setImageIndex(viewableItems[0].index);
+    }
+  }).current;
 
   useEffect(() => {
     if (slug) {
@@ -44,12 +58,42 @@ export default function MateriDetail() {
       pathname: "/(app)/kuis/select-level",
       params: {
         topicSlug: topic.slug,
+        topicTitle: topic.title,
       },
     });
   }
 
+  const renderCarouselItem = ({
+    item,
+    index,
+  }: {
+    item: any;
+    index: number;
+  }) => {
+    return (
+      <TouchableOpacity
+        style={styles.carouselItem}
+        onPress={() => {
+          setImageIndex(index);
+          setIsViewerVisible(true);
+        }}
+      >
+        <Image
+          source={{ uri: item.url }}
+          style={styles.carouselImage}
+          resizeMode="contain"
+        />
+      </TouchableOpacity>
+    );
+  };
+
   if (loading) return <Loading />;
   if (!topic) return <Text>Topic tidak ditemukan</Text>;
+
+  const imagesForViewer =
+    topic.content_images?.map((url) => ({
+      url: url,
+    })) || [];
 
   return (
     <View style={styles.container}>
@@ -60,29 +104,66 @@ export default function MateriDetail() {
         <Text style={styles.title}>{topic?.title}</Text>
       </View>
 
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {topic.content_images && topic.content_images.length > 0 ? (
-          topic.content_images.map((img: string, idx: number) => (
-            <Image
-              key={idx}
-              source={{ uri: img }}
-              style={styles.image}
-              resizeMode="contain"
+      <View style={styles.content}>
+        {imagesForViewer.length > 0 ? (
+          <View style={styles.carouselContainer}>
+            <FlatList
+              ref={flatListRef}
+              data={imagesForViewer}
+              renderItem={renderCarouselItem}
+              keyExtractor={(item, index) => index.toString()}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onViewableItemsChanged={onViewableItemsChanged}
+              viewabilityConfig={{
+                itemVisiblePercentThreshold: 50,
+              }}
             />
-          ))
+            {/* Indikator titik */}
+            <View style={styles.paginationContainer}>
+              {imagesForViewer.map((_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.paginationDot,
+                    {
+                      backgroundColor:
+                        index === imageIndex ? Colors.primary : Colors.border,
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+          </View>
         ) : (
-          <Text style={styles.placeholder}>Materi belum tersedia.</Text>
+          <View style={styles.placeholderContainer}>
+            <Text style={styles.placeholder}>Materi belum tersedia.</Text>
+          </View>
         )}
 
-        <Button
-          title="Kerjakan Kuis"
-          onPress={handleStartQuiz}
-          style={{ marginTop: 16 }}
+        <View style={styles.buttonContainer}>
+          <Button title="Kerjakan Kuis" onPress={handleStartQuiz} />
+        </View>
+      </View>
+
+      <Modal visible={isViewerVisible} transparent={true}>
+        <ImageViewer
+          imageUrls={imagesForViewer}
+          index={imageIndex}
+          onCancel={() => setIsViewerVisible(false)}
+          enableSwipeDown={true}
+          saveToLocalByLongPress={false}
+          renderHeader={() => (
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setIsViewerVisible(false)}
+            >
+              <Ionicons name="close" size={30} color="white" />
+            </TouchableOpacity>
+          )}
         />
-      </ScrollView>
+      </Modal>
     </View>
   );
 }
@@ -116,24 +197,53 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    justifyContent: "space-between",
   },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 24,
+  carouselContainer: {
+    flex: 1,
+    justifyContent: "center",
   },
-  image: {
+  carouselItem: {
+    width: screenWidth,
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  carouselImage: {
     width: "100%",
-    height: 300,
-    marginBottom: 16,
-    backgroundColor: Colors.border,
-    borderRadius: 16,
+    height: "100%",
+  },
+  paginationContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 12,
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginHorizontal: 4,
+  },
+  placeholderContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   placeholder: {
     fontSize: 14,
     color: Colors.textSecondary,
     fontStyle: "italic",
-    marginBottom: 16,
     textAlign: "center",
-    padding: 20,
+  },
+  buttonContainer: {
+    padding: 16,
+    paddingBottom: 24,
+  },
+  closeButton: {
+    position: "absolute",
+    top: 40,
+    right: 20,
+    zIndex: 10,
   },
 });

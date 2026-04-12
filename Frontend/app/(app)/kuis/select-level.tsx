@@ -58,6 +58,7 @@ const LEVELS = [
 export default function SelectLevelScreen() {
   const params = useLocalSearchParams();
   const topicSlug = params.topicSlug as string;
+  const topicTitle = params.topicTitle as string;
 
   const [progress, setProgress] = useState<Progress | null>(null);
   const [loading, setLoading] = useState(true);
@@ -167,7 +168,7 @@ export default function SelectLevelScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </TouchableOpacity>
-        <Text style={styles.title}>Pilih Level</Text>
+        <Text style={styles.title}>{topicTitle || "Pilih Level"}</Text>
       </View>
 
       <ScrollView
