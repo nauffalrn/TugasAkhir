@@ -15,13 +15,13 @@ import { Container } from "../_components/layout/container";
 import { Input } from "../_components/ui/input";
 import { Button } from "../_components/ui/button";
 import { Colors } from "../_constants/config";
-import { Ionicons } from "@expo/vector-icons"; // ✅ Impor Ionicons
+import { Ionicons } from "@expo/vector-icons";
 
 export default function Login() {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false); // ✅ State untuk visibilitas password
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({
     email: "",
