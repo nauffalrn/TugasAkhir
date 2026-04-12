@@ -1,11 +1,11 @@
 import { Router } from "express";
-import { AuthedRequest, requireAuth } from "../middleware/auth";
+import { AuthedRequest } from "../middleware/auth";
 import * as quizService from "../services/quiz.service";
 import { error, success } from "../utils/response";
 
 export const quizRouter = Router();
 
-quizRouter.post("/start", requireAuth, async (req, res) => {
+quizRouter.post("/start", async (req, res) => {
   try {
     const { topic_slug, level } = req.body;
     if (!topic_slug || !level) {
@@ -21,7 +21,7 @@ quizRouter.post("/start", requireAuth, async (req, res) => {
   }
 });
 
-quizRouter.post("/submit", requireAuth, async (req, res) => {
+quizRouter.post("/submit", async (req, res) => {
   try {
     const { attempt_id, topic_id, topic_slug, level, answers } = req.body;
     const userId = (req as AuthedRequest).userId;
