@@ -36,9 +36,17 @@ const QuestionImage = ({
   const baseUrl =
     api.defaults.baseURL?.toString().replace(/\/$/, "") ||
     "https://jagomat.onrender.com";
-  const fullUrl = url.startsWith("http")
-    ? url
-    : `${baseUrl}${url.startsWith("/") ? "" : "/"}${url}`;
+
+  let fullUrl = url;
+  if (!url.startsWith("http")) {
+    let cleanPath = url.replace(/\\/g, "/");
+    if (!cleanPath.startsWith("/")) {
+      cleanPath = "/" + cleanPath;
+    }
+    cleanPath = cleanPath.replace(/^\/public\//, "/");
+    fullUrl = `${baseUrl}${encodeURI(cleanPath)}`;
+  }
+
   const cacheBustedUrl = `${fullUrl}?cb=${new Date().getTime()}`;
 
   return (

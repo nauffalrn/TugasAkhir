@@ -20,6 +20,8 @@ export function createApp() {
     "/images",
     express.static(path.join(__dirname, "..", "public", "images")),
   );
+  app.use(express.static(path.join(__dirname, '../public')));
+
 
   app.get("/health", (req, res) => {
     res.json({ ok: true, message: "Server is running" });
