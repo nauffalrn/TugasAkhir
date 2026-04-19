@@ -1,11 +1,11 @@
 import axios, { AxiosError } from "axios";
 import { storage } from "./storage";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+const BASE_URL = "https://jagomat.onrender.com";
 
 // Create axios instance
 export const api = axios.create({
-  baseURL: API_URL,
+  baseURL: BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },
