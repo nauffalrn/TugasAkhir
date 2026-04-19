@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { API_URL } from "../config/env";
 import * as badgeRepo from "../repositories/badge.repository";
 import * as progressRepo from "../repositories/progress.repository";
 import * as questionRepo from "../repositories/question.repository";
@@ -16,11 +17,8 @@ export async function startQuiz(
     throw { code: "TOPIC_NOT_FOUND", message: "Topic tidak ditemukan" };
   }
 
-  // 2) Cek unlock level (L2+ butuh best score level sebelumnya ≥80)
   if (level > 1) {
     const progress = await progressRepo.findProgress(userId, topic.id);
-
-    // Cek apakah level ini sudah unlocked
     if (!progress || progress.highest_level_unlocked < level) {
       throw {
         code: "LEVEL_LOCKED",
@@ -29,7 +27,6 @@ export async function startQuiz(
     }
   }
 
-  // 3) Ambil 10 soal acak
   const { data: questions, error: qError } =
     await questionRepo.getRandomQuestions(topic.id, level, 10);
   if (qError || !questions || questions.length < 10) {
@@ -39,27 +36,41 @@ export async function startQuiz(
     };
   }
 
-  // 4) Tentukan timer
-  let timeLimitSeconds: number | null = null;
-  if (level === 3) timeLimitSeconds = 1800; // 30 menit
-  if (level === 4) timeLimitSeconds = 900; // 15 menit
+  const questionIds = questions.map((q: any) => q.id);
+  const assets = await questionRepo.findAssetsForQuestions(questionIds);
 
-  // 5) Generate temporary attempt ID (tidak disimpan ke DB dulu)
+  const questionsWithAssets = questions.map((q: any) => {
+    const questionAssets = assets.filter((a) => a.question_id === q.id);
+    const assetsMap = questionAssets.reduce(
+      (acc, asset) => {
+        acc[asset.position] = `${API_URL}/images/${asset.asset_url}`;
+        return acc;
+      },
+      {} as Record<string, string>,
+    );
+
+    return {
+      id: q.id,
+      prompt: q.prompt,
+      options: q.options,
+      hint: level === 1 || level === 2 ? q.hint : null,
+      assets: assetsMap,
+    };
+  });
+
+  let timeLimitSeconds: number | null = null;
+  if (level === 3) timeLimitSeconds = 1800;
+  if (level === 4) timeLimitSeconds = 900;
+
   const tempAttemptId = randomUUID();
 
-  // 6) Return soal dengan metadata (tanpa correct_index, hint hanya L1/L2)
   return {
     attempt_id: tempAttemptId,
     topic_id: topic.id,
     topic_slug: topic.slug,
     level: level,
     time_limit_seconds: timeLimitSeconds,
-    questions: questions.map((q: any) => ({
-      id: q.id,
-      prompt: q.prompt,
-      options: q.options,
-      hint: level === 1 || level === 2 ? q.hint : null,
-    })),
+    questions: questionsWithAssets,
   };
 }
 
@@ -93,7 +104,7 @@ export async function submitQuiz(
     answers.map((a) => a.question_id),
   );
 
-  // 3) Get correct answers - simpan semua data yang dibutuhkan
+  // 3) Get correct answers & assets
   const questionIds = answers.map((a) => a.question_id);
   const { data: correctData, error: cError } =
     await questionRepo.findQuestionsByIds(questionIds);
@@ -103,6 +114,8 @@ export async function submitQuiz(
       message: cError?.message || "Failed to get correct answers",
     };
   }
+
+  const assets = await questionRepo.findAssetsForQuestions(questionIds);
 
   const correctMap = new Map(
     correctData.map((q: any) => [
@@ -183,10 +196,21 @@ export async function submitQuiz(
   // 8) Return review
   const review = answers.map((ans) => {
     const questionData = correctMap.get(ans.question_id);
-    // ✅ Jawaban kosong tetap -1 di review
     const isCorrect =
       ans.selected_index !== -1 &&
       questionData?.correct_index === ans.selected_index;
+
+    const questionAssets = assets.filter(
+      (a) => a.question_id === ans.question_id,
+    );
+    const assetsMap = questionAssets.reduce(
+      (acc, asset) => {
+        acc[asset.position] = `${API_URL}/images/${asset.asset_url}`;
+        return acc;
+      },
+      {} as Record<string, string>,
+    );
+
     return {
       question_id: ans.question_id,
       prompt: questionData?.prompt,
@@ -195,6 +219,7 @@ export async function submitQuiz(
       correct_index: questionData?.correct_index,
       is_correct: isCorrect,
       explanation: questionData?.explanation,
+      assets: assetsMap,
     };
   });
 

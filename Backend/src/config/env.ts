@@ -1,5 +1,8 @@
+import dotenv from "dotenv";
 import "dotenv/config";
 import { z } from "zod";
+
+dotenv.config();
 
 const envSchema = z.object({
   PORT: z.coerce.number().default(3001),
@@ -19,3 +22,5 @@ export const env = (() => {
     process.exit(1);
   }
 })();
+
+export const API_URL = process.env.API_URL || "http://192.168.100.8:3001";

@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import path from "path";
 import { requireAuth } from "./middleware/auth";
 import { authRouter } from "./routes/auth";
 import { profileRouter } from "./routes/profiles";
@@ -11,6 +12,12 @@ export function createApp() {
 
   app.use(cors());
   app.use(express.json());
+
+  // Sajikan folder 'public/images' pada path URL '/images'
+  app.use(
+    "/images",
+    express.static(path.join(__dirname, "..", "public", "images")),
+  );
 
   app.get("/health", (req, res) => {
     res.json({ ok: true, message: "Server is running" });

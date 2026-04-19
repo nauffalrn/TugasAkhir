@@ -1,5 +1,3 @@
-export const API_URL = "http://192.168.100.8:3001";
-
 export const Colors = {
   primary: "#63C7FD",
   primaryDark: "#4BA3E0",

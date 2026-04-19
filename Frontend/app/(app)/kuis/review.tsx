@@ -7,12 +7,14 @@ import {
   TouchableOpacity,
   Modal,
   FlatList,
+  Image,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
+import ImageViewer from "react-native-image-zoom-viewer";
 import { Container } from "../../_components/layout/container";
 import { Card } from "../../_components/ui/card";
 import { Colors } from "../../_constants/config";
-import { Ionicons } from "@expo/vector-icons"; // ✅ tambah
+import { Ionicons } from "@expo/vector-icons";
 
 interface ReviewItem {
   question_id: string;
@@ -22,7 +24,32 @@ interface ReviewItem {
   correct_index: number;
   is_correct: boolean;
   explanation?: string;
+  assets?: Record<string, string>;
 }
+
+const QuestionImage = ({
+  url,
+  onZoom,
+}: {
+  url?: string;
+  onZoom: (url: string) => void;
+}) => {
+  if (!url) return null;
+  const cacheBustedUrl = `${url}?cb=${new Date().getTime()}`;
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={() => onZoom(cacheBustedUrl)}
+    >
+      <Image
+        source={{ uri: cacheBustedUrl }}
+        style={styles.assetImage}
+        resizeMode="contain"
+      />
+    </TouchableOpacity>
+  );
+};
 
 export default function ReviewScreen() {
   const params = useLocalSearchParams();
@@ -30,6 +57,7 @@ export default function ReviewScreen() {
   const level = parseInt(params.level as string);
 
   const [showNavigator, setShowNavigator] = useState(false);
+  const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
   const scrollRef = React.useRef<ScrollView>(null);
   const itemPositions = React.useRef<number[]>([]);
 
@@ -48,7 +76,6 @@ export default function ReviewScreen() {
   return (
     <Container>
       <View style={styles.header}>
-        {/* ✅ Samakan style close/back button */}
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backButton}
@@ -97,6 +124,10 @@ export default function ReviewScreen() {
                   </Text>
                 </View>
 
+                <QuestionImage
+                  url={item.assets?.prompt}
+                  onZoom={setZoomedImageUrl}
+                />
                 <Text style={styles.questionText}>{item.prompt}</Text>
 
                 <View style={styles.optionsContainer}>
@@ -104,6 +135,7 @@ export default function ReviewScreen() {
                     const isSelected = optIndex === item.selected_index;
                     const isCorrect = optIndex === item.correct_index;
                     const isEmptyAnswer = item.selected_index === -1;
+                    const imageUrl = item.assets?.[`option_${optIndex}`];
 
                     return (
                       <View
@@ -117,15 +149,21 @@ export default function ReviewScreen() {
                           isCorrect && styles.correctOption,
                         ]}
                       >
-                        <Text
-                          style={[
-                            styles.optionText,
-                            (isCorrect || (!isEmptyAnswer && isSelected)) &&
-                              styles.highlightedText,
-                          ]}
-                        >
-                          {String.fromCharCode(65 + optIndex)}. {option}
-                        </Text>
+                        <View style={styles.optionContent}>
+                          <QuestionImage
+                            url={imageUrl}
+                            onZoom={setZoomedImageUrl}
+                          />
+                          <Text
+                            style={[
+                              styles.optionText,
+                              (isCorrect || (!isEmptyAnswer && isSelected)) &&
+                                styles.highlightedText,
+                            ]}
+                          >
+                            {String.fromCharCode(65 + optIndex)}. {option}
+                          </Text>
+                        </View>
                         {isCorrect && <Text style={styles.correctMark}>✓</Text>}
                         {!isEmptyAnswer && isSelected && !isCorrect && (
                           <Text style={styles.wrongMark}>✗</Text>
@@ -159,7 +197,6 @@ export default function ReviewScreen() {
         <View style={styles.bottomSpace} />
       </ScrollView>
 
-      {/* ✅ Navigator Modal */}
       <Modal
         visible={showNavigator}
         transparent
@@ -175,7 +212,6 @@ export default function ReviewScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Legend */}
             <View style={styles.legend}>
               <View style={styles.legendItem}>
                 <View
@@ -213,6 +249,29 @@ export default function ReviewScreen() {
             />
           </View>
         </View>
+      </Modal>
+
+      <Modal
+        visible={!!zoomedImageUrl}
+        transparent={true}
+        onRequestClose={() => setZoomedImageUrl(null)}
+      >
+        {zoomedImageUrl && (
+          <ImageViewer
+            imageUrls={[{ url: zoomedImageUrl }]}
+            enableSwipeDown={true}
+            onCancel={() => setZoomedImageUrl(null)}
+            saveToLocalByLongPress={false}
+            renderHeader={() => (
+              <TouchableOpacity
+                style={styles.imageModalClose}
+                onPress={() => setZoomedImageUrl(null)}
+              >
+                <Text style={styles.imageModalCloseText}>✕</Text>
+              </TouchableOpacity>
+            )}
+          />
+        )}
       </Modal>
     </Container>
   );
@@ -318,6 +377,34 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     lineHeight: 24,
   },
+  assetImage: {
+    width: "100%",
+    height: 200,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  imageModalContainer: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  imageModalClose: {
+    position: "absolute",
+    top: 40,
+    right: 24,
+    zIndex: 10,
+    padding: 12,
+  },
+  imageModalCloseText: {
+    color: "#FFFFFF",
+    fontSize: 28,
+    fontWeight: "bold",
+  },
+  imageModalFull: {
+    width: "100%",
+    height: "80%",
+  },
   optionsContainer: {
     gap: 8,
   },
@@ -330,6 +417,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: Colors.border,
+  },
+  optionContent: {
+    flex: 1,
   },
   selectedWrongOption: {
     backgroundColor: Colors.dangerLight,

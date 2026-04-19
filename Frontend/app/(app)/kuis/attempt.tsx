@@ -3,14 +3,15 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
   Modal,
   FlatList,
+  Image,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
+import ImageViewer from "react-native-image-zoom-viewer";
 import { Container } from "../../_components/layout/container";
 import { Colors } from "../../_constants/config";
 import { api } from "../../_lib/api";
@@ -20,7 +21,32 @@ interface Question {
   prompt: string;
   options: string[];
   hint?: string;
+  assets?: Record<string, string>;
 }
+
+const QuestionImage = ({
+  url,
+  onZoom,
+}: {
+  url?: string;
+  onZoom: (url: string) => void;
+}) => {
+  if (!url) return null;
+  const cacheBustedUrl = `${url}?cb=${new Date().getTime()}`;
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={() => onZoom(cacheBustedUrl)}
+    >
+      <Image
+        source={{ uri: cacheBustedUrl }}
+        style={styles.assetImage}
+        resizeMode="contain"
+      />
+    </TouchableOpacity>
+  );
+};
 
 export default function AttemptScreen() {
   const params = useLocalSearchParams();
@@ -40,6 +66,7 @@ export default function AttemptScreen() {
   const [timeLeft, setTimeLeft] = useState(timeLimit);
   const [submitting, setSubmitting] = useState(false);
   const [showNavigator, setShowNavigator] = useState(false);
+  const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const currentQuestion = questions[currentIndex];
@@ -98,7 +125,6 @@ export default function AttemptScreen() {
     setShowNavigator(false);
   }
 
-  // ✅ Tombol keluar - tidak submit ke DB
   function handleExit() {
     Alert.alert(
       "Keluar Kuis",
@@ -146,7 +172,6 @@ export default function AttemptScreen() {
       setSubmitting(true);
       if (timerRef.current) clearInterval(timerRef.current);
 
-      // ✅ Jawaban kosong tetap null/tidak diisi
       const answers = questions.map((q) => ({
         question_id: q.id,
         selected_index:
@@ -239,74 +264,92 @@ export default function AttemptScreen() {
         />
       </View>
 
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Question */}
-        <View style={styles.questionCard}>
-          <Text style={styles.questionNumber}>Soal {currentIndex + 1}</Text>
-          <Text style={styles.questionText}>{currentQuestion.prompt}</Text>
+      <FlatList
+        data={[{ key: "quiz-content" }]}
+        keyExtractor={(item) => item.key}
+        renderItem={() => (
+          <View style={styles.contentContainer}>
+            {/* Question */}
+            <View style={styles.questionCard}>
+              <Text style={styles.questionNumber}>Soal {currentIndex + 1}</Text>
 
-          {/* Hint - hanya level 1 dan 2 */}
-          {currentQuestion.hint && (level === 1 || level === 2) && (
-            <TouchableOpacity
-              onPress={() => setShowHint(!showHint)}
-              style={styles.hintButton}
-            >
-              <Text style={styles.hintButtonText}>
-                {showHint ? "🙈 Sembunyikan Hint" : "💡 Tampilkan Hint"}
-              </Text>
-            </TouchableOpacity>
-          )}
+              <QuestionImage
+                url={currentQuestion.assets?.prompt}
+                onZoom={setZoomedImageUrl}
+              />
+              <Text style={styles.questionText}>{currentQuestion.prompt}</Text>
 
-          {showHint && currentQuestion.hint && (
-            <View style={styles.hintBox}>
-              <Text style={styles.hintText}>{currentQuestion.hint}</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Options */}
-        <View style={styles.optionsContainer}>
-          {currentQuestion.options.map((option, index) => {
-            const isSelected = selectedAnswers[currentQuestion.id] === index;
-            return (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.optionButton,
-                  isSelected && styles.selectedOption,
-                ]}
-                onPress={() => handleSelectAnswer(index)}
-                activeOpacity={0.7}
-              >
-                <View
-                  style={[
-                    styles.optionLabel,
-                    isSelected && styles.selectedLabel,
-                  ]}
+              {/* Hint - hanya level 1 dan 2 */}
+              {currentQuestion.hint && (level === 1 || level === 2) && (
+                <TouchableOpacity
+                  onPress={() => setShowHint(!showHint)}
+                  style={styles.hintButton}
                 >
-                  <Text
-                    style={[
-                      styles.optionLabelText,
-                      isSelected && styles.selectedLabelText,
-                    ]}
-                  >
-                    {String.fromCharCode(65 + index)}
+                  <Text style={styles.hintButtonText}>
+                    {showHint ? "🙈 Sembunyikan Hint" : "💡 Tampilkan Hint"}
                   </Text>
+                </TouchableOpacity>
+              )}
+
+              {showHint && currentQuestion.hint && (
+                <View style={styles.hintBox}>
+                  <Text style={styles.hintText}>{currentQuestion.hint}</Text>
                 </View>
-                <Text
-                  style={[styles.optionText, isSelected && styles.selectedText]}
-                >
-                  {option}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </ScrollView>
+              )}
+            </View>
+
+            {/* Options */}
+            <View style={styles.optionsContainer}>
+              {currentQuestion.options.map((option, index) => {
+                const isSelected =
+                  selectedAnswers[currentQuestion.id] === index;
+                const imageUrl = currentQuestion.assets?.[`option_${index}`];
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.optionButton,
+                      isSelected && styles.selectedOption,
+                    ]}
+                    onPress={() => handleSelectAnswer(index)}
+                    activeOpacity={0.7}
+                  >
+                    <View
+                      style={[
+                        styles.optionLabel,
+                        isSelected && styles.selectedLabel,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.optionLabelText,
+                          isSelected && styles.selectedLabelText,
+                        ]}
+                      >
+                        {String.fromCharCode(65 + index)}
+                      </Text>
+                    </View>
+                    <View style={styles.optionContent}>
+                      <QuestionImage
+                        url={imageUrl}
+                        onZoom={setZoomedImageUrl}
+                      />
+                      <Text
+                        style={[
+                          styles.optionText,
+                          isSelected && styles.selectedText,
+                        ]}
+                      >
+                        {option}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
+      />
 
       {/* Navigation */}
       <View style={styles.navigation}>
@@ -413,6 +456,29 @@ export default function AttemptScreen() {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={!!zoomedImageUrl}
+        transparent={true}
+        onRequestClose={() => setZoomedImageUrl(null)}
+      >
+        {zoomedImageUrl && (
+          <ImageViewer
+            imageUrls={[{ url: zoomedImageUrl }]}
+            enableSwipeDown={true}
+            onCancel={() => setZoomedImageUrl(null)}
+            saveToLocalByLongPress={false}
+            renderHeader={() => (
+              <TouchableOpacity
+                style={styles.imageModalClose}
+                onPress={() => setZoomedImageUrl(null)}
+              >
+                <Text style={styles.imageModalCloseText}>✕</Text>
+              </TouchableOpacity>
+            )}
+          />
+        )}
+      </Modal>
     </Container>
   );
 }
@@ -504,9 +570,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     borderRadius: 3,
   },
-  content: {
-    flex: 1,
-  },
   contentContainer: {
     padding: 20,
     paddingBottom: 40,
@@ -535,7 +598,35 @@ const styles = StyleSheet.create({
     fontFamily: "Galano-SemiBold",
     color: Colors.text,
     lineHeight: 28,
+    marginBottom: 8,
+  },
+  assetImage: {
+    width: "100%",
+    height: 200,
+    borderRadius: 12,
     marginBottom: 16,
+  },
+  imageModalContainer: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  imageModalClose: {
+    position: "absolute",
+    top: 40,
+    right: 24,
+    zIndex: 10,
+    padding: 12,
+  },
+  imageModalCloseText: {
+    color: "#FFFFFF",
+    fontSize: 28,
+    fontWeight: "bold",
+  },
+  imageModalFull: {
+    width: "100%",
+    height: "80%",
   },
   hintButton: {
     backgroundColor: Colors.infoLight,
@@ -543,6 +634,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 12,
     alignSelf: "flex-start",
+    marginTop: 16,
   },
   hintButtonText: {
     fontSize: 14,
@@ -551,7 +643,7 @@ const styles = StyleSheet.create({
   },
   hintBox: {
     marginTop: 12,
-    backgroundColor: Colors.warningLight || "#FFF9C4",
+    backgroundColor: Colors.warningLight,
     borderRadius: 12,
     padding: 16,
     borderLeftWidth: 4,
@@ -604,8 +696,10 @@ const styles = StyleSheet.create({
   selectedLabelText: {
     color: Colors.surface,
   },
-  optionText: {
+  optionContent: {
     flex: 1,
+  },
+  optionText: {
     fontSize: 16,
     fontFamily: "Galano",
     color: Colors.text,
@@ -650,7 +744,7 @@ const styles = StyleSheet.create({
   nextButtonText: {
     fontSize: 16,
     fontFamily: "Galano-SemiBold",
-    color: Colors.text,
+    color: Colors.surface,
   },
   navButtonDisabled: {
     opacity: 0.4,

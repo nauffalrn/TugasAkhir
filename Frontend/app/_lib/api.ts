@@ -1,6 +1,7 @@
 import axios, { AxiosError } from "axios";
-import { API_URL } from "../_constants/config";
 import { storage } from "./storage";
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 // Create axios instance
 export const api = axios.create({

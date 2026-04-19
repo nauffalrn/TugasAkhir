@@ -20,3 +20,17 @@ export async function findQuestionsByIds(ids: string[]) {
     .in("id", ids);
   return { data, error };
 }
+
+export async function findAssetsForQuestions(questionIds: string[]) {
+  const { data, error } = await supabase
+    .from("question_assets")
+    .select("question_id, asset_url, position")
+    .in("question_id", questionIds);
+
+  if (error) {
+    console.error("Error fetching question assets:", error);
+    throw new Error("Gagal mengambil aset soal");
+  }
+
+  return data || [];
+}
