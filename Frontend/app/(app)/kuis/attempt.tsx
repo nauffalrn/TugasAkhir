@@ -452,6 +452,10 @@ export default function AttemptScreen() {
                 );
               }}
               contentContainerStyle={styles.navGrid}
+              initialNumToRender={15}
+              maxToRenderPerBatch={10}
+              windowSize={5}
+              removeClippedSubviews={true}
             />
           </View>
         </View>

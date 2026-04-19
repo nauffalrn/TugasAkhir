@@ -120,6 +120,10 @@ export default function MateriDetail() {
               viewabilityConfig={{
                 itemVisiblePercentThreshold: 50,
               }}
+              initialNumToRender={2}
+              maxToRenderPerBatch={3}
+              windowSize={3}
+              removeClippedSubviews={true}
             />
             <View style={styles.paginationContainer}>
               {imagesForViewer.map((_, index) => (

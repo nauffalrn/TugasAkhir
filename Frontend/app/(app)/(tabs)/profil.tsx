@@ -41,7 +41,6 @@ export default function ProfilScreen() {
   const [profile, setProfile] = useState<any>(null);
   const [badges, setBadges] = useState<Badge[]>([]);
   const [groupedBadges, setGroupedBadges] = useState<GroupedBadge[]>([]);
-  // ✅ Expanded state TERPISAH dari groupedBadges agar tidak ikut reset
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -53,7 +52,6 @@ export default function ProfilScreen() {
     loadBadges();
   }, []);
 
-  // ✅ useFocusEffect hanya jalan setelah mount pertama selesai
   useFocusEffect(
     useCallback(() => {
       if (!isMounted.current) {
@@ -95,7 +93,6 @@ export default function ProfilScreen() {
         } else {
           const group = groupMap.get(badge.topic_id)!;
           group.badges.push(badge);
-          // ✅ Selalu compare, ambil yang paling tinggi
           if (badge.level > group.highestLevel) {
             group.highestLevel = badge.level;
           }
@@ -108,7 +105,6 @@ export default function ProfilScreen() {
     }
   }
 
-  // ✅ Toggle hanya ubah expandedTopics, tidak menyentuh groupedBadges
   function toggleExpand(topicId: string) {
     setExpandedTopics((prev) => {
       const next = new Set(prev);
@@ -162,17 +158,7 @@ export default function ProfilScreen() {
   return (
     <Container>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Profile Card */}
         <Card style={styles.profileCard}>
-          <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {profile?.username?.charAt(0).toUpperCase() ||
-                  profile?.email?.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          </View>
-
           <Text style={styles.username}>{profile?.username || "User"}</Text>
           <Text style={styles.email}>{profile?.email}</Text>
 
@@ -191,7 +177,6 @@ export default function ProfilScreen() {
           </View>
         </Card>
 
-        {/* Badges Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>🏆 Badge Saya</Text>
 
@@ -207,7 +192,6 @@ export default function ProfilScreen() {
                 curr.level > prev.level ? curr : prev,
               );
 
-              // ✅ Baca dari expandedTopics, bukan dari group object
               const isExpanded = expandedTopics.has(group.topic_id);
 
               return (
@@ -236,7 +220,6 @@ export default function ProfilScreen() {
                     </Text>
                   </TouchableOpacity>
 
-                  {/* ✅ Gunakan isExpanded */}
                   {isExpanded && (
                     <View style={styles.badgeSubList}>
                       {group.badges
@@ -295,22 +278,6 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: "center",
     marginBottom: 24,
-  },
-  avatarContainer: {
-    marginBottom: 16,
-  },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: Colors.primary,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  avatarText: {
-    fontSize: 48,
-    fontFamily: "Galano-Bold",
-    color: Colors.surface,
   },
   username: {
     fontSize: 24,

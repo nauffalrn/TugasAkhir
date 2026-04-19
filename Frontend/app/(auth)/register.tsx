@@ -64,7 +64,8 @@ export default function Register() {
   async function handleRegister() {
     setErrors({ email: "", password: "", username: "", general: "" });
 
-    if (!validate()) return;
+    let isValid = validate();
+    if (!isValid) return;
 
     setLoading(true);
     try {
@@ -72,8 +73,11 @@ export default function Register() {
       router.replace("/(app)/(tabs)/materi");
     } catch (err: any) {
       const errorMsg =
-        err.message || "Gagal mendaftar. Periksa koneksi internet.";
-      setErrors({ ...errors, general: errorMsg });
+        err?.data?.error?.message ||
+        err?.response?.data?.error?.message ||
+        "Gagal mendaftar. Periksa koneksi internet.";
+
+      setErrors((prevErrors) => ({ ...prevErrors, general: errorMsg }));
     } finally {
       setLoading(false);
     }

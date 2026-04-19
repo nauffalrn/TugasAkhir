@@ -1,3 +1,4 @@
+import compression from "compression";
 import cors from "cors";
 import express from "express";
 import path from "path";
@@ -10,10 +11,11 @@ import topicsRouter from "./routes/topics";
 export function createApp() {
   const app = express();
 
+  // Middleware
   app.use(cors());
+  app.use(compression());
   app.use(express.json());
 
-  // Sajikan folder 'public/images' pada path URL '/images'
   app.use(
     "/images",
     express.static(path.join(__dirname, "..", "public", "images")),
@@ -23,6 +25,7 @@ export function createApp() {
     res.json({ ok: true, message: "Server is running" });
   });
 
+  // Routes
   app.use("/auth", authRouter);
   app.use("/topics", topicsRouter);
   app.use("/quiz", requireAuth, quizRouter);
