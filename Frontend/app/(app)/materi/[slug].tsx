@@ -73,6 +73,7 @@ export default function MateriDetail() {
     return (
       <TouchableOpacity
         style={styles.carouselItem}
+        activeOpacity={0.9}
         onPress={() => {
           setImageIndex(index);
           setIsViewerVisible(true);
@@ -120,7 +121,6 @@ export default function MateriDetail() {
                 itemVisiblePercentThreshold: 50,
               }}
             />
-            {/* Indikator titik */}
             <View style={styles.paginationContainer}>
               {imagesForViewer.map((_, index) => (
                 <View
@@ -147,22 +147,31 @@ export default function MateriDetail() {
         </View>
       </View>
 
-      <Modal visible={isViewerVisible} transparent={true}>
-        <ImageViewer
-          imageUrls={imagesForViewer}
-          index={imageIndex}
-          onCancel={() => setIsViewerVisible(false)}
-          enableSwipeDown={true}
-          saveToLocalByLongPress={false}
-          renderHeader={() => (
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setIsViewerVisible(false)}
-            >
-              <Ionicons name="close" size={30} color="white" />
-            </TouchableOpacity>
-          )}
-        />
+      <Modal
+        visible={isViewerVisible}
+        transparent={true}
+        onRequestClose={() => setIsViewerVisible(false)}
+        animationType="fade"
+      >
+        <View style={styles.modalContainer}>
+          <ImageViewer
+            imageUrls={imagesForViewer}
+            index={imageIndex}
+            onCancel={() => setIsViewerVisible(false)}
+            enableSwipeDown={true}
+            saveToLocalByLongPress={false}
+            renderIndicator={() => <View />}
+            renderHeader={() => (
+              <TouchableOpacity
+                style={styles.closeButtonAbsolute}
+                activeOpacity={0.7}
+                onPress={() => setIsViewerVisible(false)}
+              >
+                <Ionicons name="close" size={32} color="white" />
+              </TouchableOpacity>
+            )}
+          />
+        </View>
       </Modal>
     </View>
   );
@@ -240,10 +249,17 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 24,
   },
-  closeButton: {
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "black",
+  },
+  closeButtonAbsolute: {
     position: "absolute",
-    top: 40,
+    top: 50,
     right: 20,
-    zIndex: 10,
+    zIndex: 9999,
+    padding: 12,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    borderRadius: 25,
   },
 });
