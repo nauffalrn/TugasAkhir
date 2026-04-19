@@ -10,6 +10,7 @@ import {
   Image,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
+import { api } from "../../_lib/api";
 import ImageViewer from "react-native-image-zoom-viewer";
 import { Container } from "../../_components/layout/container";
 import { Card } from "../../_components/ui/card";
@@ -35,7 +36,14 @@ const QuestionImage = ({
   onZoom: (url: string) => void;
 }) => {
   if (!url) return null;
-  const cacheBustedUrl = `${url}?cb=${new Date().getTime()}`;
+
+  const baseUrl =
+    api.defaults.baseURL?.toString().replace(/\/$/, "") ||
+    "https://jagomat.onrender.com";
+  const fullUrl = url.startsWith("http")
+    ? url
+    : `${baseUrl}${url.startsWith("/") ? "" : "/"}${url}`;
+  const cacheBustedUrl = `${fullUrl}?cb=${new Date().getTime()}`;
 
   return (
     <TouchableOpacity
