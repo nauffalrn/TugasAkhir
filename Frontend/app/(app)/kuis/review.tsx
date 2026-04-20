@@ -7,8 +7,8 @@ import {
   TouchableOpacity,
   Modal,
   FlatList,
-  Image,
 } from "react-native";
+import { Image } from "expo-image";
 import { useLocalSearchParams, router } from "expo-router";
 import { api } from "../../_lib/api";
 import ImageViewer from "react-native-image-zoom-viewer";
@@ -59,13 +59,20 @@ function toImageUrl(value?: string) {
   const raw = value.trim();
   if (!raw) return undefined;
 
-  // Jika sudah full URL, return aja
-  if (/^https?:\/\//i.test(raw)) {
-    return raw;
+  // Cari di mana kata "images/" dimulai, untuk mengabaikan IP lokal bawaan database
+  const imagesIdx = raw.toLowerCase().lastIndexOf("images/");
+  let cleanPath = raw;
+
+  if (imagesIdx !== -1) {
+    cleanPath = raw.substring(imagesIdx); // Hasilnya pasti "images/nama_file.png"
+  } else {
+    // Jika path cuma "nama_file.png"
+    const parts = raw.split("/");
+    cleanPath = "images/" + parts[parts.length - 1];
   }
 
-  // Jika path lokal, tambahin baseURL
-  return `https://jagomat.onrender.com/${raw}`;
+  // Paksa selalu tembak ke server Render
+  return `https://jagomat.onrender.com/${cleanPath}`;
 }
 
 function pickAsset(assets: Record<string, string> | undefined, keys: string[]) {
@@ -101,13 +108,14 @@ const QuestionImage = ({
   return (
     <TouchableOpacity activeOpacity={0.85} onPress={() => onZoom(finalUrl)}>
       <Image
+        key={finalUrl}
         source={{ uri: finalUrl }}
         style={styles.assetImage}
-        resizeMode="contain"
+        contentFit="contain"
+        cachePolicy="memory-disk"
+        transition={150}
         onLoad={() => console.log("IMAGE_OK_REVIEW", finalUrl)}
-        onError={(e) =>
-          console.log("IMAGE_ERR_REVIEW", finalUrl, e.nativeEvent?.error)
-        }
+        onError={() => console.log("IMAGE_ERR_REVIEW", finalUrl)}
       />
     </TouchableOpacity>
   );
