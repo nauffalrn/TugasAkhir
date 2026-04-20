@@ -51,6 +51,7 @@ function normalizeAssetPath(value: string) {
 
 function toImageUrl(value?: string) {
   if (!value) return undefined;
+
   const raw = value.trim();
   if (!raw) return undefined;
 
@@ -59,7 +60,12 @@ function toImageUrl(value?: string) {
   }
 
   const origin = "https://jagomat.onrender.com";
-  return `${origin}/${encodeURI(raw)}`;
+  const cleanPath = raw.startsWith("/") ? raw : `/${raw}`;
+  const finalUrl = `${origin}${cleanPath}`;
+
+  console.log("DEBUG_FINAL_URL", finalUrl);
+
+  return encodeURI(finalUrl);
 }
 
 function pickAsset(assets: Record<string, string> | undefined, keys: string[]) {

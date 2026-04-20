@@ -3,7 +3,6 @@ import { supabase } from "../lib/supabase";
 function normalizeAssets(assets: any) {
   if (!assets) return {};
 
-  // Parse jika string
   let parsed = assets;
   if (typeof assets === "string") {
     try {
