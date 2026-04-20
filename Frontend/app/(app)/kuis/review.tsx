@@ -28,6 +28,63 @@ interface ReviewItem {
   assets?: Record<string, string>;
 }
 
+function getApiOrigin() {
+  const raw =
+    api.defaults.baseURL?.toString() || "https://jagomat.onrender.com";
+  const match = raw.match(/^(https?:\/\/[^/]+)/i);
+  return match ? match[1] : "https://jagomat.onrender.com";
+}
+
+function normalizeAssetPath(value: string) {
+  let clean = value
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^[a-zA-Z]:\//, "/");
+
+  const publicPos = clean.toLowerCase().indexOf("public/");
+  if (publicPos !== -1) clean = clean.slice(publicPos + "public/".length);
+
+  const imagesPos = clean.toLowerCase().indexOf("images/");
+  if (imagesPos !== -1) clean = clean.slice(imagesPos);
+
+  clean = clean.replace(/^\.?\//, "").replace(/^\/+/, "");
+  if (!clean.toLowerCase().startsWith("images/")) clean = `images/${clean}`;
+
+  return clean;
+}
+
+function toImageUrl(value?: string) {
+  if (!value) return undefined;
+  const raw = value.trim();
+  if (!raw) return undefined;
+
+  if (/^https?:\/\//i.test(raw)) return encodeURI(raw);
+
+  const origin = getApiOrigin();
+  const path = normalizeAssetPath(raw);
+  return `${origin}/${encodeURI(path)}`;
+}
+
+function pickAsset(assets: Record<string, string> | undefined, keys: string[]) {
+  if (!assets) return undefined;
+
+  for (const k of keys) {
+    if (assets[k]) return assets[k];
+  }
+
+  const lowerMap: Record<string, string> = {};
+  Object.keys(assets).forEach((k) => {
+    lowerMap[k.toLowerCase()] = assets[k];
+  });
+
+  for (const k of keys) {
+    const v = lowerMap[k.toLowerCase()];
+    if (v) return v;
+  }
+
+  return undefined;
+}
+
 const QuestionImage = ({
   url,
   onZoom,
@@ -35,41 +92,8 @@ const QuestionImage = ({
   url?: string;
   onZoom: (url: string) => void;
 }) => {
-  if (!url) return null;
-
-  let baseUrl = "https://jagomat.onrender.com";
-  if (api.defaults.baseURL) {
-    const match = api.defaults.baseURL.toString().match(/^(https?:\/\/[^\/]+)/);
-    if (match) {
-      baseUrl = match[1];
-    }
-  }
-
-  const raw = url.trim();
-  let finalUrl = "";
-
-  if (/^https?:\/\//i.test(raw)) {
-    finalUrl = encodeURI(raw);
-  } else {
-    let clean = raw.replace(/\\/g, "/").replace(/^[a-zA-Z]:\//, "/");
-
-    const publicPos = clean.toLowerCase().indexOf("public/");
-    if (publicPos !== -1) {
-      clean = clean.slice(publicPos + "public/".length);
-    }
-
-    const imagesPos = clean.toLowerCase().indexOf("images/");
-    if (imagesPos !== -1) {
-      clean = clean.slice(imagesPos);
-    }
-
-    clean = clean.replace(/^\.?\//, "").replace(/^\/+/, "");
-    if (!clean.toLowerCase().startsWith("images/")) {
-      clean = `images/${clean}`;
-    }
-
-    finalUrl = `${baseUrl}/${encodeURI(clean)}`;
-  }
+  const finalUrl = toImageUrl(url);
+  if (!finalUrl) return null;
 
   return (
     <TouchableOpacity activeOpacity={0.85} onPress={() => onZoom(finalUrl)}>
@@ -77,8 +101,9 @@ const QuestionImage = ({
         source={{ uri: finalUrl }}
         style={styles.assetImage}
         resizeMode="contain"
+        onLoad={() => console.log("IMAGE_OK_REVIEW", finalUrl)}
         onError={(e) =>
-          console.log("Gagal memuat gambar:", finalUrl, e.nativeEvent.error)
+          console.log("IMAGE_ERR_REVIEW", finalUrl, e.nativeEvent?.error)
         }
       />
     </TouchableOpacity>
@@ -159,7 +184,13 @@ export default function ReviewScreen() {
                 </View>
 
                 <QuestionImage
-                  url={item.assets?.prompt}
+                  url={pickAsset(item.assets, [
+                    "prompt",
+                    "question",
+                    "image",
+                    "prompt_image",
+                    "question_image",
+                  ])}
                   onZoom={setZoomedImageUrl}
                 />
                 <Text style={styles.questionText}>{item.prompt}</Text>
@@ -169,7 +200,16 @@ export default function ReviewScreen() {
                     const isSelected = optIndex === item.selected_index;
                     const isCorrect = optIndex === item.correct_index;
                     const isEmptyAnswer = item.selected_index === -1;
-                    const imageUrl = item.assets?.[`option_${optIndex}`];
+                    const imageUrl = pickAsset(item.assets, [
+                      `option_${optIndex}`,
+                      `option_${optIndex + 1}`,
+                      `option${optIndex}`,
+                      `option${optIndex + 1}`,
+                      `opsi_${optIndex}`,
+                      `opsi_${optIndex + 1}`,
+                      String.fromCharCode(65 + optIndex),
+                      String.fromCharCode(97 + optIndex),
+                    ]);
 
                     return (
                       <View

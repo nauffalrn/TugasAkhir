@@ -24,6 +24,63 @@ interface Question {
   assets?: Record<string, string>;
 }
 
+function getApiOrigin() {
+  const raw =
+    api.defaults.baseURL?.toString() || "https://jagomat.onrender.com";
+  const match = raw.match(/^(https?:\/\/[^/]+)/i);
+  return match ? match[1] : "https://jagomat.onrender.com";
+}
+
+function normalizeAssetPath(value: string) {
+  let clean = value
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^[a-zA-Z]:\//, "/");
+
+  const publicPos = clean.toLowerCase().indexOf("public/");
+  if (publicPos !== -1) clean = clean.slice(publicPos + "public/".length);
+
+  const imagesPos = clean.toLowerCase().indexOf("images/");
+  if (imagesPos !== -1) clean = clean.slice(imagesPos);
+
+  clean = clean.replace(/^\.?\//, "").replace(/^\/+/, "");
+  if (!clean.toLowerCase().startsWith("images/")) clean = `images/${clean}`;
+
+  return clean;
+}
+
+function toImageUrl(value?: string) {
+  if (!value) return undefined;
+  const raw = value.trim();
+  if (!raw) return undefined;
+
+  if (/^https?:\/\//i.test(raw)) return encodeURI(raw);
+
+  const origin = getApiOrigin();
+  const path = normalizeAssetPath(raw);
+  return `${origin}/${encodeURI(path)}`;
+}
+
+function pickAsset(assets: Record<string, string> | undefined, keys: string[]) {
+  if (!assets) return undefined;
+
+  for (const k of keys) {
+    if (assets[k]) return assets[k];
+  }
+
+  const lowerMap: Record<string, string> = {};
+  Object.keys(assets).forEach((k) => {
+    lowerMap[k.toLowerCase()] = assets[k];
+  });
+
+  for (const k of keys) {
+    const v = lowerMap[k.toLowerCase()];
+    if (v) return v;
+  }
+
+  return undefined;
+}
+
 const QuestionImage = ({
   url,
   onZoom,
@@ -31,41 +88,8 @@ const QuestionImage = ({
   url?: string;
   onZoom: (url: string) => void;
 }) => {
-  if (!url) return null;
-
-  let baseUrl = "https://jagomat.onrender.com";
-  if (api.defaults.baseURL) {
-    const match = api.defaults.baseURL.toString().match(/^(https?:\/\/[^\/]+)/);
-    if (match) {
-      baseUrl = match[1];
-    }
-  }
-
-  const raw = url.trim();
-  let finalUrl = "";
-
-  if (/^https?:\/\//i.test(raw)) {
-    finalUrl = encodeURI(raw);
-  } else {
-    let clean = raw.replace(/\\/g, "/").replace(/^[a-zA-Z]:\//, "/");
-
-    const publicPos = clean.toLowerCase().indexOf("public/");
-    if (publicPos !== -1) {
-      clean = clean.slice(publicPos + "public/".length);
-    }
-
-    const imagesPos = clean.toLowerCase().indexOf("images/");
-    if (imagesPos !== -1) {
-      clean = clean.slice(imagesPos);
-    }
-
-    clean = clean.replace(/^\.?\//, "").replace(/^\/+/, "");
-    if (!clean.toLowerCase().startsWith("images/")) {
-      clean = `images/${clean}`;
-    }
-
-    finalUrl = `${baseUrl}/${encodeURI(clean)}`;
-  }
+  const finalUrl = toImageUrl(url);
+  if (!finalUrl) return null;
 
   return (
     <TouchableOpacity activeOpacity={0.85} onPress={() => onZoom(finalUrl)}>
@@ -73,7 +97,10 @@ const QuestionImage = ({
         source={{ uri: finalUrl }}
         style={styles.assetImage}
         resizeMode="contain"
-        onError={(e) => console.log("Gagal memuat gambar:", finalUrl, e.nativeEvent.error)}
+        onLoad={() => console.log("IMAGE_OK_ATTEMPT", finalUrl)}
+        onError={(e) =>
+          console.log("IMAGE_ERR_ATTEMPT", finalUrl, e.nativeEvent?.error)
+        }
       />
     </TouchableOpacity>
   );
@@ -305,7 +332,13 @@ export default function AttemptScreen() {
               <Text style={styles.questionNumber}>Soal {currentIndex + 1}</Text>
 
               <QuestionImage
-                url={currentQuestion.assets?.prompt}
+                url={pickAsset(currentQuestion.assets, [
+                  "prompt",
+                  "question",
+                  "image",
+                  "prompt_image",
+                  "question_image",
+                ])}
                 onZoom={setZoomedImageUrl}
               />
               <Text style={styles.questionText}>{currentQuestion.prompt}</Text>
@@ -334,7 +367,18 @@ export default function AttemptScreen() {
               {currentQuestion.options.map((option, index) => {
                 const isSelected =
                   selectedAnswers[currentQuestion.id] === index;
-                const imageUrl = currentQuestion.assets?.[`option_${index}`];
+
+                const imageUrl = pickAsset(currentQuestion.assets, [
+                  `option_${index}`,
+                  `option_${index + 1}`,
+                  `option${index}`,
+                  `option${index + 1}`,
+                  `opsi_${index}`,
+                  `opsi_${index + 1}`,
+                  String.fromCharCode(65 + index),
+                  String.fromCharCode(97 + index),
+                ]);
+
                 return (
                   <TouchableOpacity
                     key={index}
