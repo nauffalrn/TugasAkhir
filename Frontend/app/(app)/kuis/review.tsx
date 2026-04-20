@@ -58,11 +58,12 @@ function toImageUrl(value?: string) {
   const raw = value.trim();
   if (!raw) return undefined;
 
-  if (/^https?:\/\//i.test(raw)) return encodeURI(raw);
+  if (/^https?:\/\//i.test(raw)) {
+    return encodeURI(raw);
+  }
 
-  const origin = getApiOrigin();
-  const path = normalizeAssetPath(raw);
-  return `${origin}/${encodeURI(path)}`;
+  const origin = "https://jagomat.onrender.com";
+  return `${origin}/${encodeURI(raw)}`;
 }
 
 function pickAsset(assets: Record<string, string> | undefined, keys: string[]) {

@@ -34,3 +34,72 @@ export async function findAssetsForQuestions(questionIds: string[]) {
 
   return data || [];
 }
+
+export const questionRepository = {
+  async findQuestionsByTopicAndLevel(topicId: string, level: number) {
+    const { data, error } = await supabase
+      .from("questions")
+      .select("*")
+      .eq("topic_id", topicId)
+      .eq("level", level);
+
+    if (error) throw error;
+
+    return (
+      data?.map((q) => ({
+        ...q,
+        assets: normalizeAssets(q.assets),
+      })) || []
+    );
+  },
+
+  async findQuestionsById(questionIds: string[]) {
+    const { data, error } = await supabase
+      .from("questions")
+      .select("*")
+      .in("id", questionIds);
+
+    if (error) throw error;
+
+    return (
+      data?.map((q) => ({
+        ...q,
+        assets: normalizeAssets(q.assets),
+      })) || []
+    );
+  },
+};
+
+function normalizeAssets(assets: Record<string, string> | null) {
+  if (!assets) return {};
+
+  const normalized: Record<string, string> = {};
+
+  Object.entries(assets).forEach(([key, value]) => {
+    if (!value) return;
+
+    let clean = String(value)
+      .trim()
+      .replace(/\\/g, "/")
+      .replace(/^[a-zA-Z]:\//, "/");
+
+    const publicPos = clean.toLowerCase().indexOf("public/");
+    if (publicPos !== -1) {
+      clean = clean.slice(publicPos + "public/".length);
+    }
+
+    const imagesPos = clean.toLowerCase().indexOf("images/");
+    if (imagesPos !== -1) {
+      clean = clean.slice(imagesPos);
+    }
+
+    clean = clean.replace(/^\.?\//, "").replace(/^\/+/, "");
+    if (!clean.toLowerCase().startsWith("images/")) {
+      clean = `images/${clean}`;
+    }
+
+    normalized[key] = clean;
+  });
+
+  return normalized;
+}
