@@ -55,17 +55,13 @@ function toImageUrl(value?: string) {
   const raw = value.trim();
   if (!raw) return undefined;
 
+  // Jika sudah full URL, return aja
   if (/^https?:\/\//i.test(raw)) {
-    return encodeURI(raw);
+    return raw;
   }
 
-  const origin = "https://jagomat.onrender.com";
-  const cleanPath = raw.startsWith("/") ? raw : `/${raw}`;
-  const finalUrl = `${origin}${cleanPath}`;
-
-  console.log("DEBUG_FINAL_URL", finalUrl);
-
-  return encodeURI(finalUrl);
+  // Jika path lokal, tambahin baseURL
+  return `https://jagomat.onrender.com/${raw}`;
 }
 
 function pickAsset(assets: Record<string, string> | undefined, keys: string[]) {

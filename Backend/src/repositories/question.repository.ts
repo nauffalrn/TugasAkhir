@@ -22,7 +22,9 @@ function normalizeAssets(assets: any) {
     let clean = String(value)
       .trim()
       .replace(/\\/g, "/")
-      .replace(/^[a-zA-Z]:\//, "/");
+      .replace(/^[a-zA-Z]:\//, "/")
+      .replace(/^http:\/\/[^/]+/, "")
+      .replace(/^https:\/\/[^/]+/, "");
 
     const publicPos = clean.toLowerCase().indexOf("public/");
     if (publicPos !== -1) {
