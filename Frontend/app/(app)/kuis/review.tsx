@@ -37,33 +37,39 @@ const QuestionImage = ({
 }) => {
   if (!url) return null;
 
-  const baseUrl =
-    api.defaults.baseURL?.toString().replace(/\/$/, "") ||
-    "https://jagomat.onrender.com";
-
-  let normalized = url.trim().replace(/\\/g, "/");
-
-  const publicIdx = normalized.toLowerCase().lastIndexOf("/public/");
-  if (publicIdx !== -1) {
-    normalized = normalized.slice(publicIdx + "/public".length);
+  let baseUrl = "https://jagomat.onrender.com";
+  if (api.defaults.baseURL) {
+    const match = api.defaults.baseURL.toString().match(/^(https?:\/\/[^\/]+)/);
+    if (match) {
+      baseUrl = match[1];
+    }
   }
 
-  const imagesIdx = normalized.toLowerCase().lastIndexOf("/images/");
-  if (imagesIdx !== -1) {
-    normalized = normalized.slice(imagesIdx);
-  }
+  const raw = url.trim();
+  let finalUrl = "";
 
-  if (!normalized.startsWith("/")) {
-    normalized = `/${normalized}`;
-  }
+  if (/^https?:\/\//i.test(raw)) {
+    finalUrl = encodeURI(raw);
+  } else {
+    let clean = raw.replace(/\\/g, "/").replace(/^[a-zA-Z]:\//, "/");
 
-  if (!normalized.toLowerCase().startsWith("/images/")) {
-    normalized = `/images/${normalized.replace(/^\/+/, "")}`;
-  }
+    const publicPos = clean.toLowerCase().indexOf("public/");
+    if (publicPos !== -1) {
+      clean = clean.slice(publicPos + "public/".length);
+    }
 
-  const finalUrl = /^https?:\/\//i.test(url)
-    ? encodeURI(url)
-    : `${baseUrl}${encodeURI(normalized)}`;
+    const imagesPos = clean.toLowerCase().indexOf("images/");
+    if (imagesPos !== -1) {
+      clean = clean.slice(imagesPos);
+    }
+
+    clean = clean.replace(/^\.?\//, "").replace(/^\/+/, "");
+    if (!clean.toLowerCase().startsWith("images/")) {
+      clean = `images/${clean}`;
+    }
+
+    finalUrl = `${baseUrl}/${encodeURI(clean)}`;
+  }
 
   return (
     <TouchableOpacity activeOpacity={0.85} onPress={() => onZoom(finalUrl)}>
@@ -71,6 +77,9 @@ const QuestionImage = ({
         source={{ uri: finalUrl }}
         style={styles.assetImage}
         resizeMode="contain"
+        onError={(e) =>
+          console.log("Gagal memuat gambar:", finalUrl, e.nativeEvent.error)
+        }
       />
     </TouchableOpacity>
   );
