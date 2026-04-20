@@ -1,5 +1,39 @@
 import { supabase } from "../lib/supabase";
 
+function normalizeAssets(assets: Record<string, string> | null) {
+  if (!assets) return {};
+
+  const normalized: Record<string, string> = {};
+
+  Object.entries(assets).forEach(([key, value]) => {
+    if (!value) return;
+
+    let clean = String(value)
+      .trim()
+      .replace(/\\/g, "/")
+      .replace(/^[a-zA-Z]:\//, "/");
+
+    const publicPos = clean.toLowerCase().indexOf("public/");
+    if (publicPos !== -1) {
+      clean = clean.slice(publicPos + "public/".length);
+    }
+
+    const imagesPos = clean.toLowerCase().indexOf("images/");
+    if (imagesPos !== -1) {
+      clean = clean.slice(imagesPos);
+    }
+
+    clean = clean.replace(/^\.?\//, "").replace(/^\/+/, "");
+    if (!clean.toLowerCase().startsWith("images/")) {
+      clean = `images/${clean}`;
+    }
+
+    normalized[key] = clean;
+  });
+
+  return normalized;
+}
+
 export async function getRandomQuestions(
   topicId: string,
   level: number,
@@ -10,15 +44,35 @@ export async function getRandomQuestions(
     p_level: level,
     p_limit: limit,
   });
-  return { data, error };
+
+  if (error) throw error;
+
+  return {
+    data:
+      data?.map((q: any) => ({
+        ...q,
+        assets: normalizeAssets(q.assets),
+      })) || [],
+    error: null,
+  };
 }
 
 export async function findQuestionsByIds(ids: string[]) {
   const { data, error } = await supabase
     .from("questions")
-    .select("id,prompt,options,correct_index,explanation")
+    .select("*")
     .in("id", ids);
-  return { data, error };
+
+  if (error) throw error;
+
+  return {
+    data:
+      data?.map((q) => ({
+        ...q,
+        assets: normalizeAssets(q.assets),
+      })) || [],
+    error: null,
+  };
 }
 
 export async function findAssetsForQuestions(questionIds: string[]) {
@@ -69,37 +123,3 @@ export const questionRepository = {
     );
   },
 };
-
-function normalizeAssets(assets: Record<string, string> | null) {
-  if (!assets) return {};
-
-  const normalized: Record<string, string> = {};
-
-  Object.entries(assets).forEach(([key, value]) => {
-    if (!value) return;
-
-    let clean = String(value)
-      .trim()
-      .replace(/\\/g, "/")
-      .replace(/^[a-zA-Z]:\//, "/");
-
-    const publicPos = clean.toLowerCase().indexOf("public/");
-    if (publicPos !== -1) {
-      clean = clean.slice(publicPos + "public/".length);
-    }
-
-    const imagesPos = clean.toLowerCase().indexOf("images/");
-    if (imagesPos !== -1) {
-      clean = clean.slice(imagesPos);
-    }
-
-    clean = clean.replace(/^\.?\//, "").replace(/^\/+/, "");
-    if (!clean.toLowerCase().startsWith("images/")) {
-      clean = `images/${clean}`;
-    }
-
-    normalized[key] = clean;
-  });
-
-  return normalized;
-}
