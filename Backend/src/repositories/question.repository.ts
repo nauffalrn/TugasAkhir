@@ -1,11 +1,23 @@
 import { supabase } from "../lib/supabase";
 
-function normalizeAssets(assets: Record<string, string> | null) {
+function normalizeAssets(assets: any) {
   if (!assets) return {};
+
+  // Parse jika string
+  let parsed = assets;
+  if (typeof assets === "string") {
+    try {
+      parsed = JSON.parse(assets);
+    } catch {
+      return {};
+    }
+  }
+
+  if (!parsed || typeof parsed !== "object") return {};
 
   const normalized: Record<string, string> = {};
 
-  Object.entries(assets).forEach(([key, value]) => {
+  Object.entries(parsed).forEach(([key, value]: [string, any]) => {
     if (!value) return;
 
     let clean = String(value)
