@@ -37,25 +37,34 @@ const QuestionImage = ({
     api.defaults.baseURL?.toString().replace(/\/$/, "") ||
     "https://jagomat.onrender.com";
 
-  let fullUrl = url;
-  if (!url.startsWith("http")) {
-    let cleanPath = url.replace(/\\/g, "/");
-    if (!cleanPath.startsWith("/")) {
-      cleanPath = "/" + cleanPath;
-    }
-    cleanPath = cleanPath.replace(/^\/public\//, "/");
-    fullUrl = `${baseUrl}${encodeURI(cleanPath)}`;
+  let normalized = url.trim().replace(/\\/g, "/");
+
+  const publicIdx = normalized.toLowerCase().lastIndexOf("/public/");
+  if (publicIdx !== -1) {
+    normalized = normalized.slice(publicIdx + "/public".length);
   }
 
-  const cacheBustedUrl = `${fullUrl}?cb=${new Date().getTime()}`;
+  const imagesIdx = normalized.toLowerCase().lastIndexOf("/images/");
+  if (imagesIdx !== -1) {
+    normalized = normalized.slice(imagesIdx);
+  }
+
+  if (!normalized.startsWith("/")) {
+    normalized = `/${normalized}`;
+  }
+
+  if (!normalized.toLowerCase().startsWith("/images/")) {
+    normalized = `/images/${normalized.replace(/^\/+/, "")}`;
+  }
+
+  const finalUrl = /^https?:\/\//i.test(url)
+    ? encodeURI(url)
+    : `${baseUrl}${encodeURI(normalized)}`;
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.85}
-      onPress={() => onZoom(cacheBustedUrl)}
-    >
+    <TouchableOpacity activeOpacity={0.85} onPress={() => onZoom(finalUrl)}>
       <Image
-        source={{ uri: cacheBustedUrl }}
+        source={{ uri: finalUrl }}
         style={styles.assetImage}
         resizeMode="contain"
       />

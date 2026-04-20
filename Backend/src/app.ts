@@ -16,12 +16,11 @@ export function createApp() {
   app.use(compression());
   app.use(express.json());
 
-  app.use(
-    "/images",
-    express.static(path.join(__dirname, "..", "public", "images")),
-  );
-  app.use(express.static(path.join(__dirname, '../public')));
+  const publicDir = path.resolve(process.cwd(), "public");
+  const imagesDir = path.resolve(process.cwd(), "public", "images");
 
+  app.use("/images", express.static(imagesDir));
+  app.use("/public", express.static(publicDir));
 
   app.get("/health", (req, res) => {
     res.json({ ok: true, message: "Server is running" });
