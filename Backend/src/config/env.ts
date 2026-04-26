@@ -23,4 +23,4 @@ export const env = (() => {
   }
 })();
 
-export const API_URL = process.env.API_URL || "http://192.168.100.8:3001";
+export const API_URL = process.env.API_URL || "http://192.168.100.9:3001";

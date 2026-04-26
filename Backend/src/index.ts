@@ -10,5 +10,5 @@ const HOST = "0.0.0.0";
 app.listen(PORT, HOST, () => {
   console.log(`✅ Server running on http://${HOST}:${PORT}`);
   console.log(`📡 Local: http://localhost:${PORT}`);
-  console.log(`📡 Network: http://192.168.100.8:${PORT}`);
+  console.log(`📡 Network: http://192.168.100.9:${PORT}`);
 });

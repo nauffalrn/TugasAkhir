@@ -6,6 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
   Alert,
+  Dimensions,
 } from "react-native";
 import { router } from "expo-router";
 import { api } from "../../_lib/api";
@@ -14,14 +15,19 @@ import { Colors } from "../../_constants/config";
 import type { Topic } from "../../_types";
 import { Ionicons } from "@expo/vector-icons";
 
-const topicColors = [
-  { bg: Colors.accent3, light: Colors.successLight },
-  { bg: Colors.accent5, light: Colors.primaryLight },
-  { bg: Colors.accent2, light: Colors.secondaryLight },
-  { bg: Colors.accent1, light: Colors.dangerLight },
-  { bg: Colors.accent4, light: Colors.infoLight },
-  { bg: Colors.accent6, light: "#EDE9FE" },
+const { height } = Dimensions.get("window");
+const cardHeight = (height - 200) / 2;
+
+const cardColors = [
+  "#82E0AA",
+  "#F5B7B1",
+  "#7FB3D5",
+  "#D7BDE2",
+  "#E59866",
+  "#F1C40F",
 ];
+
+const kuisIcons = ["time", "shapes", "stats-chart", "keypad"];
 
 export default function KuisScreen() {
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -47,48 +53,41 @@ export default function KuisScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>🎮 Pilih Kuis</Text>
+        <Text style={styles.headerTitle}>🎮 Kuis & Evaluasi</Text>
         <Text style={styles.headerSubtitle}>
-          Uji pemahamanmu dengan kuis interaktif!
+          Uji pemahamanmu pada topik pilihan
         </Text>
       </View>
 
       <FlatList
         data={topics}
         keyExtractor={(item) => item.id}
+        numColumns={2}
+        columnWrapperStyle={styles.row}
         renderItem={({ item, index }) => {
-          const color = topicColors[index % topicColors.length];
+          const bgColor = cardColors[index % cardColors.length];
+          const iconName = kuisIcons[index % kuisIcons.length] as any;
           return (
             <TouchableOpacity
               onPress={() =>
                 router.push(
-                  `/(app)/kuis/select-level?topicId=${item.id}&topicSlug=${item.slug}`,
+                  `/kuis/select-level?topic_id=${item.id}&topic_slug=${item.slug}&title=${item.title}`,
                 )
               }
-              style={styles.topicCardWrapper}
+              style={[styles.topicCard, { backgroundColor: bgColor }]}
               activeOpacity={0.8}
             >
-              <View
-                style={[styles.topicCard, { backgroundColor: color.light }]}
-              >
-                <View style={styles.topicHeader}>
-                  <View
-                    style={[styles.iconCircle, { backgroundColor: color.bg }]}
-                  >
-                    <Ionicons
-                      name="game-controller"
-                      size={24}
-                      color="#FFFFFF"
-                    />
-                  </View>
+              <View>
+                <View style={styles.iconCircle}>
+                  <Ionicons name={iconName} size={28} color="#1A1A1A" />
                 </View>
-                <Text style={styles.topicTitle}>{item.title}</Text>
-                <View style={styles.topicFooter}>
-                  <Text style={[styles.topicAction, { color: color.bg }]}>
-                    Mulai Kuis
-                  </Text>
-                  <Ionicons name="arrow-forward" size={20} color={color.bg} />
-                </View>
+                <Text style={styles.topicTitle} numberOfLines={3}>
+                  {item.title}
+                </Text>
+              </View>
+              <View style={styles.topicFooter}>
+                <Text style={styles.topicAction}>PLAY</Text>
+                <Ionicons name="play" size={16} color="#FFFFFF" />
               </View>
             </TouchableOpacity>
           );
@@ -103,67 +102,71 @@ export default function KuisScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: "#F2F2F2",
     paddingTop: 50,
   },
   header: {
-    paddingVertical: 20,
+    paddingVertical: 12,
     paddingHorizontal: 20,
-    backgroundColor: Colors.background,
+    backgroundColor: "#F2F2F2",
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontFamily: "Galano-Bold",
-    color: Colors.text,
-    marginBottom: 8,
+    color: "#2C3E50",
+    marginBottom: 4,
   },
   headerSubtitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: "Galano",
-    color: Colors.textSecondary,
+    color: "#7F8C8D",
   },
   list: {
     paddingHorizontal: 16,
-    paddingBottom: 100,
+    paddingBottom: 20,
+    flexGrow: 1,
   },
-  topicCardWrapper: {
+  row: {
+    justifyContent: "space-between",
     marginBottom: 16,
   },
   topicCard: {
-    borderRadius: 24,
-    padding: 20,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  topicHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
+    width: "47%",
+    height: cardHeight,
+    borderRadius: 16,
+    padding: 16,
+    justifyContent: "space-between",
   },
   iconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    backgroundColor: "rgba(255,255,255,0.7)",
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: 12,
   },
   topicTitle: {
-    fontSize: 20,
+    fontSize: 15,
     fontFamily: "Galano-Bold",
-    color: Colors.text,
-    marginBottom: 16,
-    lineHeight: 28,
+    fontWeight: "bold",
+    color: "#1A1A1A",
+    textTransform: "uppercase",
+    lineHeight: 22,
   },
   topicFooter: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    backgroundColor: "rgba(0,0,0,0.25)",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
   },
   topicAction: {
-    fontSize: 16,
+    fontSize: 12,
     fontFamily: "Galano-Bold",
+    color: "#FFFFFF",
+    letterSpacing: 1,
   },
 });
