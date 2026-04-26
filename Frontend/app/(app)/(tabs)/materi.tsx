@@ -82,7 +82,7 @@ export default function MateriScreen() {
                 </Text>
               </View>
               <View style={styles.topicFooter}>
-                <Text style={styles.topicAction}>START</Text>
+                <Text style={styles.topicAction}>Mulai</Text>
                 <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
               </View>
             </TouchableOpacity>

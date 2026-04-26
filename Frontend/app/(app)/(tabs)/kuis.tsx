@@ -86,7 +86,7 @@ export default function KuisScreen() {
                 </Text>
               </View>
               <View style={styles.topicFooter}>
-                <Text style={styles.topicAction}>PLAY</Text>
+                <Text style={styles.topicAction}>Mulai</Text>
                 <Ionicons name="play" size={16} color="#FFFFFF" />
               </View>
             </TouchableOpacity>
