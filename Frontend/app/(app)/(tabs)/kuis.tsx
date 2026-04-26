@@ -71,7 +71,7 @@ export default function KuisScreen() {
             <TouchableOpacity
               onPress={() =>
                 router.push(
-                  `/kuis/select-level?topic_id=${item.id}&topic_slug=${item.slug}&title=${item.title}`,
+                  `/(app)/kuis/select-level?topicId=${item.id}&topicSlug=${item.slug}`,
                 )
               }
               style={[styles.topicCard, { backgroundColor: bgColor }]}
